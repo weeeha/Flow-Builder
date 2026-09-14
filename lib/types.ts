@@ -6,6 +6,21 @@ export type NodeStatus = "idle" | "running" | "done" | "error";
 
 export type NodeKind = "image" | "video" | "tts" | "composition";
 
+/** Which backend a video model is served from. */
+export type VideoProvider = "fal" | "runway";
+
+/**
+ * Video model ids. Runway-routed models carry a `runway:` prefix so the API
+ * route can dispatch on the id alone and old persisted graphs (fal ids with
+ * no prefix) keep working unchanged.
+ */
+export type VideoModelId =
+  | "seedance-2.0"
+  | "kling-1.6"
+  | "veo-3.1"
+  | "runway:gen4.5"
+  | "runway:seedance2_5";
+
 export interface BaseNodeData extends Record<string, unknown> {
   status: NodeStatus;
   error?: string;
@@ -21,7 +36,7 @@ export interface ImageNodeData extends BaseNodeData {
 
 export interface VideoNodeData extends BaseNodeData {
   prompt: string;
-  model: "seedance-2.0" | "kling-1.6" | "veo-3.1";
+  model: VideoModelId;
   duration: 4 | 6 | 8;
   outputUrl?: string;
 }
