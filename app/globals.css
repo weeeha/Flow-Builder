@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-canvas: #fafafa;
+  --color-node-border: #e5e7eb;
+  --color-handle-text: #6b7280;
+  --color-handle-image: #3b82f6;
+  --color-handle-video: #8b5cf6;
+  --color-handle-audio: #ec4899;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--color-canvas);
+  color: #111827;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+#__next,
+main {
+  height: 100%;
+}
+
+/* React Flow tweaks */
+.react-flow__node {
+  font-size: 13px;
+}
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+.react-flow__attribution {
+  display: none;
+}

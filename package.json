@@ -1,0 +1,36 @@
+{
+  "name": "flow-builder",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.4.0",
+    "ai": "^5.0.0",
+    "@ai-sdk/openai": "^2.0.0",
+    "@vercel/blob": "^1.0.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.5.5",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.32.0"
+}
