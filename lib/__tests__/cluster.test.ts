@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_PINS,
   assignIds,
+  clearSpot,
   nextStubSetIndex,
   rerollGroups,
   toOutputTexts,
@@ -149,6 +150,32 @@ describe("rerollGroups", () => {
     const before = JSON.stringify(current);
     rerollGroups(current, assignIds(setB.groups), [pinOf(current, 1, 1)]);
     expect(JSON.stringify(current)).toBe(before);
+  });
+});
+
+describe("clearSpot", () => {
+  const spot = { x: 500, y: 100, width: 320, height: 360 };
+
+  it("keeps the wanted position when nothing is in the way", () => {
+    expect(clearSpot(spot, [{ x: 0, y: 0, width: 380, height: 900 }])).toEqual({ x: 500, y: 100 });
+  });
+
+  it("slides below a node it would overlap", () => {
+    const taken = [{ x: 480, y: 80, width: 320, height: 340 }];
+    expect(clearSpot(spot, taken, 24)).toEqual({ x: 500, y: 444 });
+  });
+
+  it("keeps sliding past a stack of nodes, whatever order they come in", () => {
+    const taken = [
+      { x: 500, y: 464, width: 320, height: 340 },
+      { x: 500, y: 100, width: 320, height: 340 },
+    ];
+    expect(clearSpot(spot, taken, 24)).toEqual({ x: 500, y: 828 });
+  });
+
+  it("ignores nodes in another column", () => {
+    const taken = [{ x: 900, y: 100, width: 320, height: 340 }];
+    expect(clearSpot(spot, taken)).toEqual({ x: 500, y: 100 });
   });
 });
 

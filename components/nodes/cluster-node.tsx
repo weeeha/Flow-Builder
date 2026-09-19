@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
-import { Pin, Sparkles } from "lucide-react";
+import { ImagePlus, Pin, Shuffle, Sparkles } from "lucide-react";
 import { TypedHandle } from "@/components/handles/typed-handle";
-import { MAX_PINS, toOutputTexts, togglePin } from "@/lib/cluster";
-import { gatherInputs } from "@/lib/executor";
+import { MAX_PINS, clearSpot, toOutputTexts, togglePin } from "@/lib/cluster";
+import { gatherInputs, runSingleNode } from "@/lib/executor";
 import { handleId } from "@/lib/handles";
 import { DEFAULT_LLM_MODEL, llmModelLabel } from "@/lib/models";
 import { useFlowStore } from "@/lib/store";
@@ -17,8 +17,15 @@ import { WirePreview } from "./wire-preview";
 type Props = NodeProps<Extract<FlowNode, { type: "cluster" }>>;
 type Suggestion = ClusterGroup["suggestions"][number];
 
+const WIDTH = 380;
 const SKELETON_GROUPS = 4;
 const CHIPS_PER_GROUP = 3;
+
+// A branched Image node: rough size for collision checks, the gap the wire spans,
+// and how far below its top edge its text handle sits (see image-node.tsx).
+const BRANCH_BOX = { width: 320, height: 360 };
+const BRANCH_GAP = 120;
+const TEXT_HANDLE_TOP = 24;
 
 // Nothing else in the app has a :focus-visible style yet, so the chips bring their own.
 const focusRing =
@@ -33,6 +40,7 @@ export function ClusterNode({ id, data, selected }: Props) {
   const updateNodeInternals = useUpdateNodeInternals();
 
   const running = data.status === "running";
+  const hasSeed = Boolean(data.prompt.trim()) || hasWiredSeed;
   const pinnedIds = new Set(data.pinned.map((p) => p.id));
   const atCap = data.pinned.length >= MAX_PINS;
   const chipCount = data.groups.reduce((n, g) => n + g.suggestions.length, 0);
@@ -66,6 +74,35 @@ export function ClusterNode({ id, data, selected }: Props) {
     updateNodeData(id, { pinned: next, outputTexts: toOutputTexts(next) });
   };
 
+  // No confirmation step: the new node appears to the right, already wired.
+  const branchToImage = (pinId: string, row: HTMLElement | null) => {
+    const { nodes, addNode, onConnect } = useFlowStore.getState();
+    const self = nodes.find((n) => n.id === id);
+    if (!self) return;
+    // offsetTop is in flow units whatever the zoom, so the new node's text handle
+    // lines up with this chip's handle and the wire runs straight across.
+    const handleY = row ? row.offsetTop + row.offsetHeight / 2 : TEXT_HANDLE_TOP;
+    const spot = clearSpot(
+      {
+        x: self.position.x + (self.measured?.width ?? WIDTH) + BRANCH_GAP,
+        y: self.position.y + handleY - TEXT_HANDLE_TOP,
+        ...BRANCH_BOX,
+      },
+      nodes.map((n) => ({
+        ...n.position,
+        width: n.measured?.width ?? BRANCH_BOX.width,
+        height: n.measured?.height ?? BRANCH_BOX.height,
+      }))
+    );
+    const target = addNode("image", spot);
+    onConnect({
+      source: id,
+      sourceHandle: handleId(id, "text", pinId),
+      target,
+      targetHandle: handleId(target, "text"),
+    });
+  };
+
   return (
     <BaseNode
       id={id}
@@ -74,13 +111,27 @@ export function ClusterNode({ id, data, selected }: Props) {
       status={data.status}
       error={data.error}
       selected={selected}
-      width={380}
-      runDisabled={!data.prompt.trim() && !hasWiredSeed}
+      width={WIDTH}
+      runDisabled={!hasSeed}
       footer={
         data.groups.length > 0 && (
-          <span className="text-[11px] text-neutral-400">
-            {data.pinned.length}/{MAX_PINS} pinned
-          </span>
+          <>
+            <button
+              type="button"
+              onClick={() => runSingleNode(id)}
+              disabled={running || !hasSeed}
+              className={cn(
+                "flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-700 hover:border-neutral-400 disabled:opacity-50",
+                focusRing
+              )}
+            >
+              <Shuffle size={11} aria-hidden />
+              Re-roll all
+            </button>
+            <span className="text-[11px] text-neutral-400">
+              {data.pinned.length}/{MAX_PINS} pinned
+            </span>
+          </>
         )
       }
     >
@@ -141,9 +192,16 @@ export function ClusterNode({ id, data, selected }: Props) {
               <ul className="space-y-1">
                 {group.suggestions.map((s) => {
                   const pinned = pinnedIds.has(s.id);
-                  // A pinned chip stays mounted through a run, or its handle and wire would drop.
+                  // A pinned chip stays mounted through a run, or its handle and wire would
+                  // drop. A chip being re-rolled keeps its own box, so nothing pinned moves.
                   if (running && !pinned) {
-                    return <li key={s.id} className={cn("h-8 rounded-lg", pulse)} aria-hidden />;
+                    return (
+                      <li key={s.id} className={cn("rounded-lg", pulse)} aria-hidden>
+                        <span className="invisible block border border-transparent px-2 py-1.5 text-[12px] leading-snug">
+                          {s.text}
+                        </span>
+                      </li>
+                    );
                   }
                   const blocked = !pinned && atCap;
                   return (
@@ -167,14 +225,28 @@ export function ClusterNode({ id, data, selected }: Props) {
                         <span>{s.text}</span>
                       </button>
                       {pinned && (
-                        <TypedHandle
-                          id={id}
-                          type="source"
-                          position={Position.Right}
-                          handleType="text"
-                          port={s.id}
-                          style={{ right: -13 }}
-                        />
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => branchToImage(s.id, e.currentTarget.closest("li"))}
+                            aria-label={`Send ${group.axis} concept to image node`}
+                            className={cn(
+                              "flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 text-[11px] font-medium text-neutral-700 hover:border-neutral-400",
+                              focusRing
+                            )}
+                          >
+                            <ImagePlus size={12} aria-hidden />
+                            to image
+                          </button>
+                          <TypedHandle
+                            id={id}
+                            type="source"
+                            position={Position.Right}
+                            handleType="text"
+                            port={s.id}
+                            style={{ right: -13 }}
+                          />
+                        </>
                       )}
                     </li>
                   );

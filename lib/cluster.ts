@@ -89,6 +89,27 @@ export function rerollGroups(
   return merged;
 }
 
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where a branched node can go: the wanted spot, slid down until it clears every
+ * node in its column. One top-to-bottom pass is enough because it only moves down.
+ */
+export function clearSpot(spot: Box, taken: Box[], gap = 24): { x: number; y: number } {
+  let y = spot.y;
+  for (const box of [...taken].sort((a, b) => a.y - b.y)) {
+    const sameColumn = box.x < spot.x + spot.width && spot.x < box.x + box.width;
+    const collides = box.y < y + spot.height + gap && y < box.y + box.height + gap;
+    if (sameColumn && collides) y = box.y + box.height + gap;
+  }
+  return { x: spot.x, y };
+}
+
 /**
  * Which fixture set a stub run serves next: the one after the set on screen, judged
  * by shared suggestion texts. Derived from the node's own groups so two cluster
