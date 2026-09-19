@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { ImageIcon, Video, AudioLines, Layers, Play } from "lucide-react";
+import { ImageIcon, Video, AudioLines, Layers, Play, Sparkles } from "lucide-react";
 import { useFlowStore } from "@/lib/store";
 import { runAll } from "@/lib/executor";
 import type { NodeKind } from "@/lib/types";
@@ -11,6 +11,7 @@ const NODE_BUTTONS: { kind: NodeKind; label: string; icon: React.ReactNode }[] =
   { kind: "video", label: "Video", icon: <Video size={18} /> },
   { kind: "tts", label: "Text to Speech", icon: <AudioLines size={18} /> },
   { kind: "composition", label: "Composition", icon: <Layers size={18} /> },
+  { kind: "cluster", label: "Concept Cluster", icon: <Sparkles size={18} /> },
 ];
 
 export function NodeToolbar() {
