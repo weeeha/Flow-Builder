@@ -1,0 +1,78 @@
+{
+  "sets": [
+    {
+      "groups": [
+        {
+          "axis": "camera",
+          "suggestions": [
+            { "text": "Low-angle wide shot from the rocks, the lighthouse towering against an orange dusk sky" },
+            { "text": "Aerial orbit of a lighthouse at dusk, waves wrapping the headland below" },
+            { "text": "Telephoto close-up of the lantern room at dusk, the beam cutting through sea haze" }
+          ]
+        },
+        {
+          "axis": "era",
+          "suggestions": [
+            { "text": "An 1890s lighthouse at dusk, the keeper climbing the stairs with an oil lamp" },
+            { "text": "A 1970s lighthouse at dusk on faded Kodachrome, a station wagon parked by the gate" },
+            { "text": "A far-future lighthouse at dusk guiding cargo airships over a flooded coast" }
+          ]
+        },
+        {
+          "axis": "weather",
+          "suggestions": [
+            { "text": "A lighthouse at dusk in thick fog, the beam a soft cone of gold" },
+            { "text": "A lighthouse at dusk as a storm breaks, spray exploding over the gallery rail" },
+            { "text": "A lighthouse at dusk under a clear violet sky, first stars above a flat sea" }
+          ]
+        },
+        {
+          "axis": "material",
+          "wild": true,
+          "suggestions": [
+            { "text": "A lighthouse at dusk folded from paper, glowing from inside on a sea of crumpled foil" },
+            { "text": "A lighthouse at dusk carved from sea ice, its beam refracting through the frozen walls" },
+            { "text": "A lighthouse at dusk built of stacked television sets, every screen showing a different sunset" }
+          ]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "axis": "camera",
+          "suggestions": [
+            { "text": "First-person view from a rowing boat at dusk, the lighthouse rising over the bow" },
+            { "text": "Slow dolly through the keeper's window at dusk, the lamp warming up behind the glass" },
+            { "text": "Top-down shot of a lighthouse at dusk, its beam sweeping like a clock hand" }
+          ]
+        },
+        {
+          "axis": "era",
+          "suggestions": [
+            { "text": "A Roman beacon tower at dusk, fire burning in an open brazier above the harbour" },
+            { "text": "A 1930s lighthouse at dusk in black and white, a biplane passing overhead" },
+            { "text": "A present-day automated lighthouse at dusk, solar panels and a lone maintenance van" }
+          ]
+        },
+        {
+          "axis": "weather",
+          "suggestions": [
+            { "text": "A lighthouse at dusk during heavy snowfall, flakes streaking through the beam" },
+            { "text": "A lighthouse at dusk after rain, wet rocks mirroring the pink and amber sky" },
+            { "text": "A lighthouse at dusk in a dry heat haze, the horizon rippling behind it" }
+          ]
+        },
+        {
+          "axis": "material",
+          "wild": true,
+          "suggestions": [
+            { "text": "A lighthouse at dusk knitted from grey wool, a tiny bulb glowing through the stitches" },
+            { "text": "A lighthouse at dusk made of stacked library books, light spilling from between the pages" },
+            { "text": "A lighthouse at dusk blown from amber glass, the whole tower lit like a filament" }
+          ]
+        }
+      ]
+    }
+  ]
+}
