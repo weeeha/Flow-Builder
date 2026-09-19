@@ -1,6 +1,7 @@
 "use client";
 
-import type { FlowEdge, FlowNode } from "./types";
+import type { ClusterGroup, FlowEdge, FlowNode } from "./types";
+import { nextStubGroups, rerollGroups, toOutputTexts } from "./cluster";
 import { parseHandleId } from "./handles";
 import { effectivePrompt } from "./prompt";
 import { useFlowStore } from "./store";
@@ -65,7 +66,24 @@ function topologicalSort(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   return result;
 }
 
-async function runNode(node: FlowNode, inputs: NodeInputs): Promise<string> {
+type RunResult =
+  | { kind: "url"; url: string }
+  | { kind: "cluster"; groups: ClusterGroup[]; stub: boolean };
+
+/** Long enough for the skeleton chips to read as loading. */
+const STUB_ROLL_MS = 600;
+
+async function runNode(node: FlowNode, inputs: NodeInputs): Promise<RunResult> {
+  if (node.type === "cluster") {
+    if (!effectivePrompt(inputs.texts, node.data.prompt)) {
+      throw new Error("Prompt is empty");
+    }
+    // Thin slice: resolves the local fixture directly, no fetch. Plan task 10
+    // replaces this with a POST to /api/generate/cluster.
+    await new Promise((resolve) => setTimeout(resolve, STUB_ROLL_MS));
+    return { kind: "cluster", groups: nextStubGroups(node.data.groups), stub: true };
+  }
+
   const endpoint =
     node.type === "image"
       ? "/api/generate/image"
@@ -77,7 +95,7 @@ async function runNode(node: FlowNode, inputs: NodeInputs): Promise<string> {
 
   if (!endpoint) {
     if (node.type === "composition") {
-      return inputs.videos[0] ?? "";
+      return { kind: "url", url: inputs.videos[0] ?? "" };
     }
     throw new Error(`No runner for node type ${node.type}`);
   }
@@ -97,7 +115,7 @@ async function runNode(node: FlowNode, inputs: NodeInputs): Promise<string> {
     throw new Error(`${res.status} ${text}`);
   }
   const json = (await res.json()) as { url: string };
-  return json.url;
+  return { kind: "url", url: json.url };
 }
 
 export async function runSingleNode(nodeId: string) {
@@ -107,8 +125,20 @@ export async function runSingleNode(nodeId: string) {
   setNodeStatus(nodeId, "running");
   try {
     const inputs = gatherInputs(nodeId, nodes, edges);
-    const url = await runNode(node, inputs);
-    updateNodeData(nodeId, { outputUrl: url, videoUrl: url });
+    const result = await runNode(node, inputs);
+    if (result.kind === "cluster") {
+      // Read the node again: a chip can be pinned while the roll is in flight, and pins win.
+      const fresh = useFlowStore.getState().nodes.find((n) => n.id === nodeId);
+      if (fresh?.type === "cluster") {
+        updateNodeData(nodeId, {
+          groups: rerollGroups(fresh.data.groups, result.groups, fresh.data.pinned),
+          outputTexts: toOutputTexts(fresh.data.pinned),
+          stub: result.stub,
+        });
+      }
+    } else {
+      updateNodeData(nodeId, { outputUrl: result.url, videoUrl: result.url });
+    }
     setNodeStatus(nodeId, "done");
   } catch (err) {
     setNodeStatus(nodeId, "error", (err as Error).message);
