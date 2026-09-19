@@ -7,6 +7,7 @@ import { TypedHandle } from "@/components/handles/typed-handle";
 import { useFlowStore } from "@/lib/store";
 import type { FlowNode } from "@/lib/types";
 import { BaseNode } from "./base-node";
+import { WirePreview } from "./wire-preview";
 
 type Props = NodeProps<Extract<FlowNode, { type: "tts" }>>;
 
@@ -36,6 +37,8 @@ export function TTSNode({ id, data, selected }: Props) {
     >
       <TypedHandle id={id} type="target" position={Position.Left} handleType="text" />
       <TypedHandle id={id} type="source" position={Position.Right} handleType="audio" />
+
+      <WirePreview id={id} />
 
       <div className="mb-2 flex items-center gap-2 rounded-lg bg-neutral-50 px-2 py-2">
         <button

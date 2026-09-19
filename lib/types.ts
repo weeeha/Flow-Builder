@@ -26,6 +26,10 @@ export interface BaseNodeData extends Record<string, unknown> {
   error?: string;
   prompt?: string;
   model?: string;
+  /** Text this node offers on its plain text source handle. */
+  outputText?: string;
+  /** Text per named text source handle, keyed by the handle id's port segment. */
+  outputTexts?: Record<string, string>;
 }
 
 export interface ImageNodeData extends BaseNodeData {
