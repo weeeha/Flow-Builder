@@ -6,6 +6,7 @@
    which Radix never sets (it writes data-state="open"), so every open and close
    animation is a dead class. Variants and utilities only, no element rules. */
 @import "shadcn/tailwind.css";
+@import "../components/flow/flow-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 

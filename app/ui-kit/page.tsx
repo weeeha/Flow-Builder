@@ -44,6 +44,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { FLOW_STATUSES } from "@/components/flow/flow-types"
+import { MediaSlot } from "@/components/flow/media-slot"
+import { NodePrompt } from "@/components/flow/node-prompt"
+import { NodeStatusBadge } from "@/components/flow/node-status"
+import { RunButton } from "@/components/flow/run-button"
 
 function Section({
   title,
@@ -61,6 +66,14 @@ function Section({
 }
 
 export default function UiKitPage() {
+  const [expandedPrompt, setExpandedPrompt] = React.useState(
+    "A cat wearing sunglasses, skateboarding down a boardwalk at sunset."
+  )
+  const [collapsedPrompt, setCollapsedPrompt] = React.useState(
+    "A cat wearing sunglasses, skateboarding down a boardwalk at sunset."
+  )
+  const [promptCollapsed, setPromptCollapsed] = React.useState(true)
+
   return (
     <TooltipProvider>
       <main className="min-h-screen bg-background p-8 text-foreground">
@@ -164,6 +177,74 @@ export default function UiKitPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </Section>
+          </div>
+
+          <h2 className="mt-10 mb-1 text-xl font-semibold">Flow Kit</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Verification page for the components/flow primitives copied
+            alongside the tts-node.tsx conversion.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Section title="NodePrompt">
+              <div className="flex w-full flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">Expanded</span>
+                  <NodePrompt
+                    value={expandedPrompt}
+                    onChange={setExpandedPrompt}
+                    placeholder="Describe the image…"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">Collapsed</span>
+                  <NodePrompt
+                    value={collapsedPrompt}
+                    onChange={setCollapsedPrompt}
+                    collapsed={promptCollapsed}
+                    onExpand={() => setPromptCollapsed(false)}
+                  />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="MediaSlot">
+              <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">idle</span>
+                  <MediaSlot kind="audio" status="idle" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">streaming</span>
+                  <MediaSlot kind="audio" status="streaming" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">failed</span>
+                  <MediaSlot kind="audio" status="failed" />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="NodeStatusBadge">
+              {FLOW_STATUSES.map((status) => (
+                <NodeStatusBadge key={status} status={status} />
+              ))}
+            </Section>
+
+            <Section title="RunButton">
+              <RunButton status="idle" onRun={() => {}} />
+              <RunButton status="streaming" onRun={() => {}} onStop={() => {}} />
+              <RunButton status="queued" onRun={() => {}} />
+              <RunButton status="locked" onRun={() => {}} />
+              <RunButton
+                status="idle"
+                onRun={() => {}}
+                onRunFrom={() => {}}
+                onRunSelection={() => {}}
+                onRunAll={() => {}}
+              />
             </Section>
           </div>
         </div>
