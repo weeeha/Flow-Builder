@@ -11,6 +11,7 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import type {
+  ClusterNodeData,
   CompositionNodeData,
   FlowEdge,
   FlowNode,
@@ -58,6 +59,13 @@ const defaultData: Record<NodeKind, FlowNode["data"]> = {
   composition: {
     status: "idle",
   } satisfies CompositionNodeData,
+  cluster: {
+    status: "idle",
+    prompt: "",
+    groups: [],
+    pinned: [],
+    outputTexts: {},
+  } satisfies ClusterNodeData,
 };
 
 export const useFlowStore = create<FlowState>()(
