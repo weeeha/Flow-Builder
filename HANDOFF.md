@@ -1,5 +1,5 @@
-# Handoff · Flow Builder · 2026-09-20 19:33 EDT
-Branch: claude/flow-node-builder-handoff-061dc6 · PR: none · Preview: none (no dev server for this repo was running at 18:52)
+# Handoff · Flow Builder · 2026-09-20 19:46 EDT
+Branch: claude/flow-node-builder-handoff-061dc6 · PR: https://github.com/weeeha/Flow-Builder/pull/1 (from the docs-only branch, see State) · Preview: none (no dev server for this repo was running at 18:52)
 
 ## Goal
 Build an inspector panel and a node registry for Flow Builder, as defined and decided in CONCEPT.md. This branch holds the concept and this handoff only.
@@ -8,7 +8,8 @@ Build an inspector panel and a node registry for Flow Builder, as defined and de
 - CONCEPT.md, first version with 4 open decisions · f875138
 - CONCEPT.md, Nick's answers recorded plus the recommended contract (three typed tables, card and inspector split, inspector behaviour) · 6ef02ff
 - HANDOFF.md · this commit
-- No app code changed. This branch is `main` plus two root files, so it merges into any branch without conflicts.
+- PR #1, open and ready for review, 2 files · pushed as `claude/flow-node-builder-handoff-061dc6-docs`, a docs-only branch built on the GitHub stub `main`
+- No app code changed. This local branch is `main` plus two root files. Take the docs into any branch with `git checkout claude/flow-node-builder-handoff-061dc6 -- CONCEPT.md HANDOFF.md`.
 
 ## State right now
 - Uncommitted: none here. The `design-system-component-reuse-321c19` worktree had uncommitted work from another session at 19:32: modified `components/nodes/tts-node.tsx`, `app/globals.css`, `app/ui-kit/page.tsx`, `package.json`, `vitest.config.mts`; untracked `components/flow/`, `lib/flow-status.ts`, `vitest.setup.ts`. It is converting the tts card to Flow Kit pieces. The other 5 worktrees are clean.
@@ -20,7 +21,7 @@ Build an inspector panel and a node registry for Flow Builder, as defined and de
   - `claude/design-system-component-reuse-321c19` d633feb: ds-foundation merged with concept-cluster. The working line for the next build. Its merge result is unverified here.
 - Blockers:
   - The live session above edits the same node files this build touches. Start after it commits.
-  - Nothing is pushed. `origin` (github.com/weeeha/Flow-Builder) holds only the stub commit c84425c. 11 local commits carry a gmail author address, which GitHub rejects (GH007). New commits use the repo-local noreply address.
+  - No code branch can be pushed or get a PR yet. `origin/main` (github.com/weeeha/Flow-Builder) is still the stub commit c84425c and shares no history with local `main`. 11 local commits, including the root commit of every local branch, carry a gmail author address, which GitHub rejects (GH007). New commits use the repo-local noreply address. Only the docs branch for PR #1 is on the remote.
 
 ## Decisions made (and why)
 - Nick, 2026-09-20: build both inspector and registry with the inspector as the priority ("1 AB A"); hybrid params (2C); media kinds only (3A); recommended contract for now (4). Details in CONCEPT.md.
@@ -41,7 +42,7 @@ Build an inspector panel and a node registry for Flow Builder, as defined and de
 4. Slice 3: `lib/runners.ts` and `components/nodes/registry.tsx`; the executor and `nodeTypes` read the tables; `BaseNode` renders static ports from the spec and the per-card `TypedHandle` lines for static ports go away.
 5. Check in visible Chrome and Safari windows before calling any slice done.
 6. Separate open work: build 07 tasks 8 to 11. Two [HAND] stubs belong to Nick and stay untouched: the `it.todo` in `lib/__tests__/prompt.test.ts` and `shouldCollapsePrompt` in the live tts conversion.
-7. Before any push, with Nick's go: bundle backup, one `git filter-branch --env-filter` pass over `-- --branches --not --remotes` to swap the gmail address for the noreply one, then seed `main` once with `--force-with-lease`. After that, branches and PRs only.
+7. Before any push, with Nick's go: bundle backup, one `git filter-branch --env-filter` pass over `-- --branches --not --remotes` to swap the gmail address for the noreply one, then seed `main` once with `--force-with-lease` (the lease value changes if PR #1 was merged first). After that, branches and PRs only, and PR #1's branch needs a rebase onto the real `main` or a replacement PR from this branch.
 
 ## Verify
 `pnpm test` passes. Then `pnpm dev` and open http://localhost:3000 (3107 if 3000 is taken) in Chrome and Safari: selecting a video node opens the inspector with model and duration, changing the model updates the card's header label, a graph saved before the refactor reloads with its nodes and edges, and Run all still produces outputs in stub mode.
