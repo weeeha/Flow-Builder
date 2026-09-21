@@ -1,48 +1,49 @@
-# Handoff · Flow Builder · 2026-09-20 19:46 EDT
-Branch: claude/flow-node-builder-handoff-061dc6 · PR: https://github.com/weeeha/Flow-Builder/pull/1 (from the docs-only branch, see State) · Preview: none (no dev server for this repo was running at 18:52)
+# Handoff · Flow Builder · 2026-09-20 21:10 EDT
+Branch: claude/roadmap-specs-review-d07960 (local, off `main` 74098b2, not pushed) · PR: none yet for these docs (PR #1 merged older revisions) · Preview: none (no dev server this session)
 
 ## Goal
-Build an inspector panel and a node registry for Flow Builder, as defined and decided in CONCEPT.md. This branch holds the concept and this handoff only.
+Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept Cluster, 11 Clip to graph) and add the inspector and node registry from CONCEPT.md. This file sequences all four in the order Nick chose on 2026-09-20 (order 4, see Decisions).
 
 ## Done (this session)
-- CONCEPT.md, first version with 4 open decisions · f875138
-- CONCEPT.md, Nick's answers recorded plus the recommended contract (three typed tables, card and inspector split, inspector behaviour) · 6ef02ff
-- HANDOFF.md · this commit
-- PR #1, open and ready for review, 2 files · pushed as `claude/flow-node-builder-handoff-061dc6-docs`, a docs-only branch built on the GitHub stub `main`
-- No app code changed. This local branch is `main` plus two root files. Take the docs into any branch with `git checkout claude/flow-node-builder-handoff-061dc6 -- CONCEPT.md HANDOFF.md`.
+- Read CONCEPT.md, HANDOFF.md and the four build docs against the code at 296bafe. Every checkable claim held: the cited line counts, `runDisabled` on BaseNode, `useUpdateNodeInternals`, the two-set fixture, `hasLlmKey` and `LLM_MODEL` in the server-only helper, both [HAND] `it.todo` stubs, the `shouldCollapsePrompt` stub, build 11's port table against the JSX handles, no picker for the image and tts `model`, the unversioned persist store, the executor's double URL write and stop on first error, the F1 to F4 and 07 task SHAs, and no `generateObject` call anywhere.
+- Ran `pnpm test` and `pnpm typecheck` in the design-system worktree at 296bafe: 10 files, 94 passed, 2 todo; typecheck clean.
+- Nick chose the build order (Decisions).
+- Docs moved onto this branch, which is based on the merged `main`, so they can be pushed and PR'd without the add/add conflicts the previous handoff expected. Fixed on the way: 07 spec §4 wording on cluster special-casing, the stale "local main differs from origin/main" state, and the order-dependent paragraphs in the 07 and 11 docs.
+- No app code changed in this session.
 
 ## State right now
-- Uncommitted: none here. The `design-system-component-reuse-321c19` worktree had uncommitted work from another session at 19:32: modified `components/nodes/tts-node.tsx`, `app/globals.css`, `app/ui-kit/page.tsx`, `package.json`, `vitest.config.mts`; untracked `components/flow/`, `lib/flow-status.ts`, `vitest.setup.ts`. It is converting the tts card to Flow Kit pieces. The other 5 worktrees are clean.
-- Tests: `pnpm test` on `concept-cluster` (ead6e47) at 18:52 → 4 files, 61 passed, 1 todo. `main` and `runway-node` have no test runner. Build, typecheck and browsers were not run this session.
-- Branches (all local, read at 19:32):
-  - `main` 4766cc9: baseline. `runway-node` 7025b6a: main + Runway video provider + `lib/models.ts`.
-  - `concept-cluster` ead6e47: runway-node + foundation F1 to F4 + build 07 tasks 1 to 7. Tasks 8 to 11 are unbuilt.
-  - `ds-foundation` ad750bc: main + 10 `components/ui` primitives and tokens.
-  - `claude/design-system-component-reuse-321c19` d633feb: ds-foundation merged with concept-cluster. The working line for the next build. Its merge result is unverified here.
-- Blockers:
-  - The live session above edits the same node files this build touches. Start after it commits.
-  - No code branch can be pushed or get a PR yet. `origin/main` (github.com/weeeha/Flow-Builder) is still the stub commit c84425c and shares no history with local `main`. 11 local commits, including the root commit of every local branch, carry a gmail author address, which GitHub rejects (GH007). New commits use the repo-local noreply address. Only the docs branch for PR #1 is on the remote.
+- `main` = `origin/main` = 74098b2: PR #2 (`import-app`) merged. PRs #3 `runway-node`, #4 `concept-cluster`, #5 `claude/design-system-component-reuse-321c19` were not in `origin/main` at the last local fetch; run `git fetch` before assuming more.
+- Working line: `claude/design-system-component-reuse-321c19` 296bafe, 13 commits ahead of `main`. Contains `runway-node` 5b59b7c, `concept-cluster` 1f64a90 and `ds-foundation` 507bdb2.
+- Picked builds:
+  - **00 foundation**: built. F1 to F4 are e37fc0a, e2fcb86, 5164ba4, b7c22f4.
+  - **07 Concept Cluster**: thin slice built (tasks 1 to 7, tip 1f64a90). 80 min open: tasks 8 to 12. Task 12 is [HAND]. Safari has never been checked.
+  - **11 Clip to graph**: nothing built. Thin slice is tasks 1 to 8, about 3 h. Task 3 is [HAND].
+  - **Inspector and node registry** (CONCEPT.md): nothing built. No `node-kinds`, `runners`, `registry` or inspector file exists on any branch.
+- Tests: `pnpm test` at 20:58 on 296bafe → 10 files, 94 passed, 2 todo. `pnpm typecheck` clean. Build and browsers were not run.
+- Docs: this branch holds the current CONCEPT.md, HANDOFF.md and `docs/builds/`. `claude/flow-node-builder-handoff-061dc6` (af4943e) holds the previous revision and is superseded; `origin/main` holds the PR #1 revision.
+- Blockers: none for building.
 
 ## Decisions made (and why)
-- Nick, 2026-09-20: build both inspector and registry with the inspector as the priority ("1 AB A"); hybrid params (2C); media kinds only (3A); recommended contract for now (4). Details in CONCEPT.md.
-- Order is specs, then inspector, then runners and views · the inspector becomes the first visible result and is written once.
-- `data` stays flat · API routes stay unchanged and the unversioned persisted store needs no migration.
-- Three tables instead of one object per kind · routes and tests need ports without React, and cards import the executor.
-- Inspector is a non-modal `aside` · Radix Dialog and Sheet trap focus and block the canvas.
+- Nick, 2026-09-20 21:05, build order 4: finish 07 (tasks 8 to 11), then registry slice 1, then the inspector (slice 2), then runners and views (slice 3), then build 11's thin slice on the finished registry · it honours "inspector first" from CONCEPT.md, and build 11 never hand-writes `NODE_HANDLES` or registers `reference` through hand-edited files. Orders considered: 1 picked builds first with registry 1 before 11 (the earlier default), 2 inspector and registry first, 3 registry and inspector after both builds.
+- Earlier decisions stand: inspector and registry both, inspector as the priority; hybrid params; media kinds only; the recommended contract; `palette: false` for `reference`; the model may only author image, video, tts and composition; `data` stays flat.
+- Build docs carry engineering content only · the repo is public.
 
 ## Tried and rejected
-- Generating the inspector form from zod introspection · fragile and gives no control over order or grouping. `fields` drive the form; zod is derived later for build 11 or MCP.
-- One definition object per kind holding Card and `run` · creates an executor, registry, card, executor import cycle and pulls React into routes.
-- From notes dated 2026-09-19, not re-tested: a hidden or background browser tab reports missing React Flow edges and dead Enter and Space keys. Use a visible window or headless Chrome.
+- Generating the inspector form from zod introspection · fragile, no control over order or grouping.
+- One definition object per kind holding Card and `run` · import cycle through the executor, and React ends up in routes.
+- Merging `origin/main` into the old docs branch · add/add conflicts on both root docs; rebasing the docs onto `main` on this branch avoids them.
 
 ## Next (do in order)
-1. Confirm the design-system worktree is committed (`git -C .claude/worktrees/design-system-component-reuse-321c19 status --short`). Branch `node-registry` off that branch, merge this branch in for the docs, run `pnpm install` and `pnpm test`.
-2. Slice 1, no visible change: write `lib/node-kinds.ts` per CONCEPT.md for the 5 kinds. First add tests that pin today's `defaultData` values and each kind's port list, then derive `defaultData` in `lib/store.ts` and the toolbar buttons from `NODE_KINDS`.
-3. Slice 2, first visible result: the inspector per CONCEPT.md. Move video model and duration and tts voice off the cards; add the missing image model and tts model controls. Leave `inspectorTarget(nodes, lastId)` as a stub that returns the single selected node, marked [HAND] for Nick.
-4. Slice 3: `lib/runners.ts` and `components/nodes/registry.tsx`; the executor and `nodeTypes` read the tables; `BaseNode` renders static ports from the spec and the per-card `TypedHandle` lines for static ports go away.
-5. Check in visible Chrome and Safari windows before calling any slice done.
-6. Separate open work: build 07 tasks 8 to 11. Two [HAND] stubs belong to Nick and stay untouched: the `it.todo` in `lib/__tests__/prompt.test.ts` and `shouldCollapsePrompt` in the live tts conversion.
-7. Before any push, with Nick's go: bundle backup, one `git filter-branch --env-filter` pass over `-- --branches --not --remotes` to swap the gmail address for the noreply one, then seed `main` once with `--force-with-lease` (the lease value changes if PR #1 was merged first). After that, branches and PRs only, and PR #1's branch needs a rebase onto the real `main` or a replacement PR from this branch.
+1. Publish these docs, with Nick's go: push this branch, open a PR against `main`.
+2. Branch off the working line 296bafe (or off `main` once #3 to #5 merge). Run `pnpm install && pnpm test`: expect 10 files, 94 passed, 2 todo.
+3. Build 07 tasks 8, 9 and 11 per `docs/builds/07-concept-cluster/plan.md`. Task 11 needs visible Chrome and Safari windows.
+4. Before 07 task 10, the repo's first `generateObject` call: settle the SDK version. `ai` is `^5.0.0`; current AI Gateway guidance targets `ai@^6`. Recommendation: upgrade once, before the call is written, so 07 task 10 and 11 tasks 5 and 9 share one API. Then build task 10 with the fetch in the executor's `"cluster"` branch; slice 3 moves it into `RUNNERS.cluster`.
+5. Registry slice 1, about 1 h, no visible change: `lib/node-kinds.ts` per CONCEPT.md. Tests pin today's `defaultData` and port lists first.
+6. Inspector (slice 2): the first visible result. `inspectorTarget(nodes, lastId)` stays a [HAND] stub.
+7. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; the executor and `nodeTypes` read the tables.
+8. Build 11 thin slice, tasks 1 to 8, on the finished registry: `NODE_HANDLES` derives from `NODE_KINDS`, `reference` registers through the three tables with `palette: false`.
+9. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
+10. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
 
 ## Verify
-`pnpm test` passes. Then `pnpm dev` and open http://localhost:3000 (3107 if 3000 is taken) in Chrome and Safari: selecting a video node opens the inspector with model and duration, changing the model updates the card's header label, a graph saved before the refactor reloads with its nodes and edges, and Run all still produces outputs in stub mode.
+`pnpm test` passes. Each build plan ends with an acceptance walkthrough that runs in stub mode with zero keys; a build is done when its walkthrough plays in Chrome and Safari. For the inspector: selecting a video node shows model and duration, changing the model updates the card header, and a graph saved before the refactor reloads with its nodes and edges.
