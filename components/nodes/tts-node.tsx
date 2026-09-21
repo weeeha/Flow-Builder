@@ -1,28 +1,51 @@
 "use client";
 
 import { Position, type NodeProps } from "@xyflow/react";
-import { AudioLines, Pause, Play } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { TypedHandle } from "@/components/handles/typed-handle";
+import { MediaSlot } from "@/components/flow/media-slot";
+import { NodePrompt } from "@/components/flow/node-prompt";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toFlowStatus } from "@/lib/flow-status";
 import { useFlowStore } from "@/lib/store";
-import type { FlowNode } from "@/lib/types";
+import type { FlowNode, NodeStatus } from "@/lib/types";
 import { BaseNode } from "./base-node";
+import { WirePreview } from "./wire-preview";
 
 type Props = NodeProps<Extract<FlowNode, { type: "tts" }>>;
 
 const VOICES = ["Rachel", "Adam", "Alice", "Bella", "Charlie", "Domi"];
 
+// [HAND] Nick decides: when should the prompt collapse to its one-line summary?
+// Kit guidance (the Flora pattern): collapse once an output exists, and clicking
+// the summary expands it again. Things to weigh: for TTS the text IS the content
+// and gets re-edited often; collapsing saves height on a crowded canvas; decide
+// whether a new run re-collapses a prompt the user expanded by hand.
+// Returning false keeps today's always-open textarea.
+function shouldCollapsePrompt(args: {
+  status: NodeStatus;
+  hasOutput: boolean;
+  userExpanded: boolean;
+}): boolean {
+  void args;
+  return false; // TODO(HAND)
+}
+
 export function TTSNode({ id, data, selected }: Props) {
   const updateNodeData = useFlowStore((s) => s.updateNodeData);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
+  const [userExpanded, setUserExpanded] = useState(false);
 
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) a.pause();
-    else a.play();
-  };
+  // MediaSlot only renders media once status is "done". A node freshly loaded
+  // from a reload (or otherwise sitting at "idle") with a prior outputUrl still
+  // needs to show it, so idle-with-output is treated as done for the slot.
+  const slotStatus =
+    data.status === "idle" && data.outputUrl ? "done" : toFlowStatus(data.status);
 
   return (
     <BaseNode
@@ -37,59 +60,36 @@ export function TTSNode({ id, data, selected }: Props) {
       <TypedHandle id={id} type="target" position={Position.Left} handleType="text" />
       <TypedHandle id={id} type="source" position={Position.Right} handleType="audio" />
 
-      <div className="mb-2 flex items-center gap-2 rounded-lg bg-neutral-50 px-2 py-2">
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={!data.outputUrl}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white disabled:opacity-40"
-        >
-          {playing ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
-        </button>
-        <div className="flex h-6 flex-1 items-center gap-px overflow-hidden">
-          {data.outputUrl ? (
-            <div className="flex h-full w-full items-center gap-px">
-              {Array.from({ length: 40 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-full bg-neutral-300"
-                  style={{ height: `${20 + (i * 17) % 70}%` }}
-                />
-              ))}
-            </div>
-          ) : (
-            <AudioLines size={16} className="text-neutral-300" />
-          )}
-        </div>
-        {data.outputUrl && (
-          <audio
-            ref={audioRef}
-            src={data.outputUrl}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => setPlaying(false)}
-          />
-        )}
-      </div>
+      <WirePreview id={id} />
 
-      <select
-        value={data.voice}
-        onChange={(e) => updateNodeData(id, { voice: e.target.value })}
-        className="mb-2 w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px]"
-      >
-        {VOICES.map((v) => (
-          <option key={v} value={v}>
-            {v}
-          </option>
-        ))}
-      </select>
+      <MediaSlot kind="audio" status={slotStatus} src={data.outputUrl} className="nodrag mb-2" />
 
-      <textarea
+      <Select value={data.voice} onValueChange={(voice) => updateNodeData(id, { voice })}>
+        <SelectTrigger size="sm" aria-label="Voice" className="nodrag mb-2 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {VOICES.map((v) => (
+            <SelectItem key={v} value={v}>
+              {v}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <NodePrompt
         value={data.prompt}
-        onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
+        onChange={(prompt) => updateNodeData(id, { prompt })}
         placeholder="Type the text to speak..."
         rows={3}
-        className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-400"
+        aria-label="Text to speak"
+        collapsed={shouldCollapsePrompt({
+          status: data.status,
+          hasOutput: !!data.outputUrl,
+          userExpanded,
+        })}
+        onExpand={() => setUserExpanded(true)}
+        className="nodrag"
       />
     </BaseNode>
   );

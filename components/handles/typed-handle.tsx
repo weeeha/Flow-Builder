@@ -1,6 +1,7 @@
 "use client";
 
 import { Handle, Position, type HandleProps } from "@xyflow/react";
+import { handleId, sameHandleType } from "@/lib/handles";
 import { useFlowStore } from "@/lib/store";
 import { HANDLE_COLORS, type HandleType } from "@/lib/types";
 
@@ -9,6 +10,8 @@ interface TypedHandleProps {
   type: "source" | "target";
   position: Position;
   handleType: HandleType;
+  /** Names one of several handles of the same type on a node. Never affects validity. */
+  port?: string;
   style?: React.CSSProperties;
 }
 
@@ -17,6 +20,7 @@ export function TypedHandle({
   type,
   position,
   handleType,
+  port,
   style,
 }: TypedHandleProps) {
   const isValidConnection: HandleProps["isValidConnection"] = (conn) => {
@@ -24,14 +28,12 @@ export function TypedHandle({
     const fromNode = nodes.find((n) => n.id === conn.source);
     const toNode = nodes.find((n) => n.id === conn.target);
     if (!fromNode || !toNode) return false;
-    const fromHandle = (conn.sourceHandle ?? "").split(":")[1] as HandleType | undefined;
-    const toHandle = (conn.targetHandle ?? "").split(":")[1] as HandleType | undefined;
-    return fromHandle === toHandle;
+    return sameHandleType(conn.sourceHandle, conn.targetHandle);
   };
 
   return (
     <Handle
-      id={`${id}:${handleType}`}
+      id={handleId(id, handleType, port)}
       type={type}
       position={position}
       isValidConnection={isValidConnection}

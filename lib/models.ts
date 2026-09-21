@@ -50,3 +50,14 @@ export function videoModelLabel(id: VideoModelId): string {
   const m = VIDEO_MODELS.find((x) => x.id === id);
   return m ? `${PROVIDER_LABELS[m.provider]} · ${m.label}` : id;
 }
+
+/**
+ * Default AI Gateway slug for LLM routes. It lives here, not in lib/llm.ts, because
+ * that file is server-only and node headers need the label on the client.
+ */
+export const DEFAULT_LLM_MODEL = "anthropic/claude-sonnet-5";
+
+/** Strip the provider prefix for display: "anthropic/claude-sonnet-5" reads "claude-sonnet-5". */
+export function llmModelLabel(slug: string): string {
+  return slug.replace(/^[^/]+\//, "");
+}

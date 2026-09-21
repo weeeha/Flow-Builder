@@ -16,6 +16,8 @@ interface BaseNodeProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   width?: number;
+  /** Keeps Run off until the node has what it needs. Defaults to never. */
+  runDisabled?: boolean;
 }
 
 export function BaseNode({
@@ -28,6 +30,7 @@ export function BaseNode({
   children,
   footer,
   width = 320,
+  runDisabled = false,
 }: BaseNodeProps) {
   const deleteNode = useFlowStore((s) => s.deleteNode);
 
@@ -67,7 +70,7 @@ export function BaseNode({
           </button>
           <button
             onClick={() => runSingleNode(id)}
-            disabled={status === "running"}
+            disabled={status === "running" || runDisabled}
             className="flex items-center gap-1 rounded-md bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
           >
             {status === "running" ? (

@@ -12,6 +12,7 @@ import {
 } from "@/lib/models";
 import type { FlowNode, VideoModelId, VideoNodeData } from "@/lib/types";
 import { BaseNode } from "./base-node";
+import { WirePreview } from "./wire-preview";
 
 type Props = NodeProps<Extract<FlowNode, { type: "video" }>>;
 
@@ -70,6 +71,8 @@ export function VideoNode({ id, data, selected }: Props) {
       <TypedHandle id={id} type="target" position={Position.Left} handleType="text" style={{ top: 24 }} />
       <TypedHandle id={id} type="target" position={Position.Left} handleType="image" style={{ top: 56 }} />
       <TypedHandle id={id} type="source" position={Position.Right} handleType="video" />
+
+      <WirePreview id={id} />
 
       <div className="mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
         {data.outputUrl ? (

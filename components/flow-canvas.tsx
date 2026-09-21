@@ -14,6 +14,7 @@ import { ImageNode } from "@/components/nodes/image-node";
 import { VideoNode } from "@/components/nodes/video-node";
 import { TTSNode } from "@/components/nodes/tts-node";
 import { CompositionNode } from "@/components/nodes/composition-node";
+import { ClusterNode } from "@/components/nodes/cluster-node";
 import { NodeToolbar } from "@/components/node-toolbar";
 
 const nodeTypes: NodeTypes = {
@@ -21,6 +22,7 @@ const nodeTypes: NodeTypes = {
   video: VideoNode,
   tts: TTSNode,
   composition: CompositionNode,
+  cluster: ClusterNode,
 };
 
 function FlowCanvasInner() {
