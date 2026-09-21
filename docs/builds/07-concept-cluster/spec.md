@@ -1,6 +1,6 @@
 # Concept Cluster node
 
-Status: refreshed 2026-09-20 from the 2026-09-19 draft, updated the same evening after tasks 8-10 · Base: claude/design-system-component-reuse-321c19 @ 296bafe, tasks 8-10 on `cluster-finish` · open: task 11's Safari half, task 12 [HAND]
+Status: refreshed 2026-09-20 from the 2026-09-19 draft, updated the same evening after tasks 8-10 · Base: claude/design-system-component-reuse-321c19, thin slice @ 296bafe, tasks 8-10 @ 571fe09 · open: task 11's Safari half, task 12 [HAND]
 
 ## 1. TL;DR
 Concept Cluster is a node kind that fans one loose prompt into three or four grouped suggestions, a pattern taken from Runway's Concept Cluster. Pinning a suggestion turns it into a text output wired to another node; re-rolling reshuffles everything except what is pinned. It runs with zero API keys, against a local fixture, the same stub pattern every generation route in this app already uses. Tasks 1-10 are built; what remains is the Safari half of the cross-browser pass and Nick's hand task on `effectivePrompt`.
@@ -14,7 +14,7 @@ Concept Cluster is a node kind that fans one loose prompt into three or four gro
 - `DEFAULT_LLM_MODEL` and `llmModelLabel` live in `lib/models.ts`, not `lib/llm.ts`, because `lib/llm.ts` is `server-only` and the card header needs the label on the client.
 - `BaseNode` gained an optional `runDisabled` prop, though the original decision 5 said BaseNode would not change. Flagged below for Nick.
 - CONCEPT.md (2026-09-20) proposed a node registry; it is not a prerequisite for tasks 8-12 (see Architecture). Nick's build order of 2026-09-20 puts tasks 8 to 11 before the registry, so task 10 adds its fetch to the executor's `"cluster"` branch and registry slice 3 moves it into `RUNNERS.cluster` later.
-- (2026-09-20 evening) Tasks 8-10 landed on `cluster-finish` (b71f6f9, 596ce20). The branch action moved into `lib/branch.ts` (`branchFromPin`) so image and video share one placement-and-wire path that is tested against the real store. The route runs on `ai` ^7 through `generateText` with `Output.object`, because `generateObject` is deprecated since AI SDK 6; `ai` was ^5 and nothing imported it before this route.
+- (2026-09-20 evening) Tasks 8-10 landed on the same branch (b71f6f9, 596ce20, fast-forwarded to 571fe09). The branch action moved into `lib/branch.ts` (`branchFromPin`) so image and video share one placement-and-wire path that is tested against the real store. The route runs on `ai` ^7 through `generateText` with `Output.object`, because `generateObject` is deprecated since AI SDK 6; `ai` was ^5 and nothing imported it before this route.
 
 ## 3. What the user sees
 1. Add a Cluster node from the toolbar. Empty, placeholder copy, no groups.
@@ -104,7 +104,7 @@ export const ClusterResponse = z
 - `components/nodes/base-node.tsx`: gained an optional `runDisabled` prop (default `false`), used only by the cluster card. The original decision 5 said BaseNode would not be modified; this is small and backward-compatible, every other card omits the prop and keeps its old behavior, but it is still a deviation. See Decisions.
 
 ### Still to change
-- Nothing for tasks 8 to 10; they landed as b71f6f9 and 596ce20 on `cluster-finish`, which also bumps `ai` to ^7 and aliases `server-only` to Next's empty shim in `vitest.config.mts` so route tests can import `lib/llm.ts`. Task 12 [HAND] still touches `lib/prompt.ts`.
+- Nothing for tasks 8 to 10; they landed as b71f6f9 and 596ce20 on `claude/design-system-component-reuse-321c19`, which also bumps `ai` to ^7 and aliases `server-only` to Next's empty shim in `vitest.config.mts` so route tests can import `lib/llm.ts`. Task 12 [HAND] still touches `lib/prompt.ts`.
 - No further change to `components/handles/typed-handle.tsx` beyond the foundation's refactor, already in place.
 
 ## 7. Testing
@@ -114,7 +114,7 @@ Checked by script in headless Chrome (`scripts/check-cluster-chrome.mjs`, 14 che
 
 Fixture: `lib/stubs/cluster.json`, used when `hasLlmKey()` is false, covered by its own tests above. Not yet exercised through a real route, since none exists.
 
-`pnpm test` on `cluster-finish`: 13 files, 114 passed, 2 todo. New since the thin slice: `branch.test.ts` (placement and wiring against the real store), `executor.test.ts` (per-group re-roll through the real route handler in stub mode, with `fetch` stubbed to call it), `cluster-route.test.ts` (stub set and rotation, empty prompt 400, one retry on a schema failure, 500 after the second, no retry for other errors; the model call is the one mock). One of the two todo cases is `effectivePrompt`'s task-12 case; the other sits in `lib/__tests__/flow-status.test.ts`.
+`pnpm test` at 571fe09: 13 files, 114 passed, 2 todo. New since the thin slice: `branch.test.ts` (placement and wiring against the real store), `executor.test.ts` (per-group re-roll through the real route handler in stub mode, with `fetch` stubbed to call it), `cluster-route.test.ts` (stub set and rotation, empty prompt 400, one retry on a schema failure, 500 after the second, no retry for other errors; the model call is the one mock). One of the two todo cases is `effectivePrompt`'s task-12 case; the other sits in `lib/__tests__/flow-status.test.ts`.
 
 ## 8. Risks and open questions
 

@@ -1,9 +1,9 @@
 # Concept Cluster: build plan
 
-Total 3.5 h · Tasks 1-10 built (1-7 on `claude/design-system-component-reuse-321c19` @ 296bafe, 8-10 on `cluster-finish`) · open: task 11's Safari half, task 12 [HAND]
+Total 3.5 h · Tasks 1-10 built on `claude/design-system-component-reuse-321c19` (thin slice @ 296bafe, tasks 8-10 @ 571fe09) · open: task 11's Safari half, task 12 [HAND]
 
 ## Before you start
-- Work on a branch cut from `claude/design-system-component-reuse-321c19` at or after 296bafe, or from `main` once PRs #2 to #5 are merged into it.
+- Work on a branch cut from `claude/design-system-component-reuse-321c19` at or after 571fe09, or from `main` once PRs #2 to #5 are merged into it.
 - Foundation F1-F4 and build 07 tasks 1-10 are already built (see Built below). Run `pnpm install && pnpm test` first: expect 13 files, 114 passed, 2 todo.
 - `pnpm dev` runs clean; `pnpm typecheck` is clean before you start.
 - Note which provider keys are set locally (`AI_GATEWAY_API_KEY`, `FAL_KEY`, and similar). The acceptance walkthrough below depends on stub mode, meaning none of them set.
