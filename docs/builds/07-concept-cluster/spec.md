@@ -1,9 +1,9 @@
 # Concept Cluster node
 
-Status: refreshed 2026-09-20 from the 2026-09-19 draft · Base: claude/design-system-component-reuse-321c19 @ 296bafe · Thin slice built, 80 min of tasks open
+Status: refreshed 2026-09-20 from the 2026-09-19 draft, updated the same evening after tasks 8-10 · Base: claude/design-system-component-reuse-321c19 @ 296bafe, tasks 8-10 on `cluster-finish` · open: task 11's Safari half, task 12 [HAND]
 
 ## 1. TL;DR
-Concept Cluster is a node kind that fans one loose prompt into three or four grouped suggestions, a pattern taken from Runway's Concept Cluster. Pinning a suggestion turns it into a text output wired to another node; re-rolling reshuffles everything except what is pinned. It runs with zero API keys, against a local fixture, the same stub pattern every generation route in this app already uses. The thin slice (tasks 1-7) is built; 80 minutes of tasks remain (8-12), one of them Nick's by hand.
+Concept Cluster is a node kind that fans one loose prompt into three or four grouped suggestions, a pattern taken from Runway's Concept Cluster. Pinning a suggestion turns it into a text output wired to another node; re-rolling reshuffles everything except what is pinned. It runs with zero API keys, against a local fixture, the same stub pattern every generation route in this app already uses. Tasks 1-10 are built; what remains is the Safari half of the cross-browser pass and Nick's hand task on `effectivePrompt`.
 
 ## 2. Changes since the 2026-09-19 draft
 - Foundation (F1-F4) and build 07 tasks 1-7 are built on `claude/design-system-component-reuse-321c19`; only tasks 8-12 remain.
@@ -14,6 +14,7 @@ Concept Cluster is a node kind that fans one loose prompt into three or four gro
 - `DEFAULT_LLM_MODEL` and `llmModelLabel` live in `lib/models.ts`, not `lib/llm.ts`, because `lib/llm.ts` is `server-only` and the card header needs the label on the client.
 - `BaseNode` gained an optional `runDisabled` prop, though the original decision 5 said BaseNode would not change. Flagged below for Nick.
 - CONCEPT.md (2026-09-20) proposed a node registry; it is not a prerequisite for tasks 8-12 (see Architecture). Nick's build order of 2026-09-20 puts tasks 8 to 11 before the registry, so task 10 adds its fetch to the executor's `"cluster"` branch and registry slice 3 moves it into `RUNNERS.cluster` later.
+- (2026-09-20 evening) Tasks 8-10 landed on `cluster-finish` (b71f6f9, 596ce20). The branch action moved into `lib/branch.ts` (`branchFromPin`) so image and video share one placement-and-wire path that is tested against the real store. The route runs on `ai` ^7 through `generateText` with `Output.object`, because `generateObject` is deprecated since AI SDK 6; `ai` was ^5 and nothing imported it before this route.
 
 ## 3. What the user sees
 1. Add a Cluster node from the toolbar. Empty, placeholder copy, no groups.
@@ -27,7 +28,7 @@ Concept Cluster is a node kind that fans one loose prompt into three or four gro
 ## 4. Scope
 **In v1:** all four states; chips from a real LLM route with a zod-checked schema and one retry; pin/unpin with a dynamic port per pin, up to four; "to image" and "to video" branch actions; re-roll all and re-roll one group; `runAll` includes cluster nodes.
 
-**Thin slice, built:** the local fixture stands in for the route. All four states, chips, pin/unpin with the dynamic port, one branch action ("to image"), re-roll all only. `runAll` already includes cluster nodes: it walks every node in topological order and `runNode` branches on `node.type`, with a `"cluster"` branch that resolves the fixture.
+**Built so far (tasks 1-10):** all four states, chips, pin/unpin with the dynamic port, both branch actions, re-roll all and re-roll one group, and the real route, which serves the fixture without a key. `runAll` already includes cluster nodes: it walks every node in topological order and `runNode` branches on `node.type`, with a `"cluster"` branch that resolves the fixture.
 
 **Out of v1:** "more like this" on a suggestion, per-suggestion thumbnails, dragging a chip onto canvas without picking a type, saving clusters.
 
@@ -38,9 +39,9 @@ Concept Cluster is a node kind that fans one loose prompt into three or four gro
 - `lib/cluster-schema.ts`: the zod schema (`ClusterResponse`), kept apart from `lib/cluster.ts` so the client bundle does not pull in zod. Built.
 - `lib/cluster.ts`: the pure helpers - `assignIds`, `togglePin`, `toOutputTexts`, `rerollGroups`, `clearSpot`, `nextStubSetIndex`/`nextStubGroups`. Built, wider than the original list, which only named the schema and the route.
 - `lib/stubs/cluster.json`: the no-key fixture, `{ sets: [{ groups: RawClusterGroup[] }, ...] }`, two sets. Built.
-- `app/api/generate/cluster/route.ts`: the LLM call, a `POST` handler returning `{ groups }` or `{ error }`. Depends on `lib/llm.ts`, zod, `ai`, the fixture. Still open (task 10).
-- `components/nodes/cluster-node.tsx`: the UI. Depends on `BaseNode`, `TypedHandle` (`components/handles/typed-handle.tsx`), `useFlowStore`, `useUpdateNodeInternals`. Built; uses hand-rolled buttons and Tailwind classes throughout, nothing from `components/ui` or `components/flow`.
-- `lib/executor.ts`: a `"cluster"` branch in `runNode`/`runSingleNode`. Built; today it resolves the fixture on a timer, no fetch. Task 10 points it at the route.
+- `app/api/generate/cluster/route.ts`: a `POST` handler returning `{ groups, stub }` or `{ error }`. Built (task 10): `generateText` with `Output.object({ schema: ClusterResponse })` on `ai` ^7, one retry on `NoObjectGeneratedError`, `{ error }` at 500 after that; without a key it serves the fixture's next set after a 600 ms delay so the skeleton reads as loading. Ids come from `assignIds` after the schema check.
+- `components/nodes/cluster-node.tsx`: the UI. Depends on `BaseNode`, `TypedHandle` (`components/handles/typed-handle.tsx`), `useFlowStore`, `useUpdateNodeInternals`. Built; uses hand-rolled buttons and Tailwind classes throughout, nothing from `components/ui` or `components/flow`. Its branch actions call `branchFromPin` in `lib/branch.ts`, and only the group being re-rolled on its own shows the skeleton.
+- `lib/executor.ts`: `rollCluster` posts to `/api/generate/cluster` for Run, Run all and the per-group re-roll (`rerollClusterGroup`); `applyClusterRoll` merges an answer with pins winning. Built.
 - store / canvas / toolbar: `defaultData`'s cluster entry, `nodeTypes`'s `cluster: ClusterNode`, the toolbar's `NODE_BUTTONS` entry. Built.
 
 Interplay with the node registry: CONCEPT.md (2026-09-20) proposes a `NODE_KINDS`/`RUNNERS`/`NODE_VIEWS` registry, but nothing in tasks 8-12 needs it to exist first. Under the registry, the cluster kind's `outputs` is a function of `data.pinned`, and the card keeps rendering its own per-pin handles as it does now. If the registry's runners slice lands before task 10, the fetch to `/api/generate/cluster` belongs in `RUNNERS.cluster` and the `"cluster"` branch in `lib/executor.ts` goes away; if it lands after, task 10 adds the fetch where the branch already is, and a later pass moves it. Either order works for the tasks below.
@@ -103,18 +104,17 @@ export const ClusterResponse = z
 - `components/nodes/base-node.tsx`: gained an optional `runDisabled` prop (default `false`), used only by the cluster card. The original decision 5 said BaseNode would not be modified; this is small and backward-compatible, every other card omits the prop and keeps its old behavior, but it is still a deviation. See Decisions.
 
 ### Still to change
-- `components/nodes/cluster-node.tsx`: a "to video" branch action mirroring "to image" (task 8); a per-group re-roll control mirroring "Re-roll all" (task 9). Both should match the file's existing hand-rolled markup; it imports nothing from `components/ui` or `components/flow` today.
-- `app/api/generate/cluster/route.ts`: does not exist yet (task 10). The executor's `"cluster"` branch will point at it instead of calling `nextStubGroups` directly.
+- Nothing for tasks 8 to 10; they landed as b71f6f9 and 596ce20 on `cluster-finish`, which also bumps `ai` to ^7 and aliases `server-only` to Next's empty shim in `vitest.config.mts` so route tests can import `lib/llm.ts`. Task 12 [HAND] still touches `lib/prompt.ts`.
 - No further change to `components/handles/typed-handle.tsx` beyond the foundation's refactor, already in place.
 
 ## 7. Testing
 Unit-tested (Vitest, `lib/__tests__/`): the zod schema against right and wrong shapes (wild-group count, a 26-word suggestion, group count); the fixture itself (at least two sets, four groups per set with one wild, matching axes across sets, no repeated suggestion text); `assignIds`, `togglePin` (including the four-pin cap and no-mutation), `toOutputTexts`, `rerollGroups` (a pinned row survives, ids stay stable, a shorter fresh roll doesn't drop a pin), `clearSpot`, `nextStubSetIndex`. This is more automated coverage than the original draft planned; it expected only the schema to be unit-tested and the rest checked by hand.
 
-Checked by hand, not yet automated: pin/unpin state in Chrome and Safari (task 11 covers the Safari half); the running skeleton; the stub label; a branch action creating a correctly wired node; keyboard-only pinning; `runAll` completing end to end with zero keys set.
+Checked by script in headless Chrome (`scripts/check-cluster-chrome.mjs`, 14 checks, 2026-09-20): chips render, Tab reaches a chip that matches `:focus-visible`, Enter and Space toggle a pin, a pin adds a handle, to video lands a wired node, a second pin's handle connects by a real drag, one group re-rolls alone with both pins intact. The same checks for Safari sit in `scripts/check-cluster-safari.mjs` and have not run yet: safaridriver needs Allow remote automation on in Safari's Developer settings. Still by hand: the running skeleton, the stub label, `runAll` end to end with zero keys.
 
 Fixture: `lib/stubs/cluster.json`, used when `hasLlmKey()` is false, covered by its own tests above. Not yet exercised through a real route, since none exists.
 
-`pnpm test` on this base: 10 files, 94 passed, 2 todo. One of the two todo cases is `effectivePrompt`'s task-12 case; the other sits in `lib/__tests__/flow-status.test.ts`.
+`pnpm test` on `cluster-finish`: 13 files, 114 passed, 2 todo. New since the thin slice: `branch.test.ts` (placement and wiring against the real store), `executor.test.ts` (per-group re-roll through the real route handler in stub mode, with `fetch` stubbed to call it), `cluster-route.test.ts` (stub set and rotation, empty prompt 400, one retry on a schema failure, 500 after the second, no retry for other errors; the model call is the one mock). One of the two todo cases is `effectivePrompt`'s task-12 case; the other sits in `lib/__tests__/flow-status.test.ts`.
 
 ## 8. Risks and open questions
 
@@ -125,9 +125,9 @@ Fixture: `lib/stubs/cluster.json`, used when `hasLlmKey()` is false, covered by 
 4. Trusting the model for stable ids: the mitigation is closed. `assignIds` assigns ids after the schema check regardless of source, and it is unit-tested.
 
 **Not verified:**
-- The exact error `generateObject` throws on a schema mismatch, needed for task 10's retry logic, and whether `ai@^5` routes a plain string model id through the AI Gateway once a key is set. `lib/llm.ts` carries a comment asserting the gateway resolves a plain string id, but nothing calls `generateObject` yet.
+- Whether a real answer that fails the zod schema reaches the route as `NoObjectGeneratedError` (the retry keys on that class; the route test proves the branch with a constructed error, not the SDK), and whether `ai@^7` routes the plain string model id through the AI Gateway once a key is set. No real model call has been made.
 - The AI Gateway slug for Claude Sonnet 5 (`"anthropic/claude-sonnet-5"` in `lib/models.ts` is a guess at the shape).
-- zod `^4.4.2` against `ai@^5`'s `generateObject` schema argument, same reason.
+- zod `^4.4.2`, with a top-level `.refine`, against `ai@^7`'s `Output.object` schema argument, same reason.
 - Whether one text target in `@xyflow/react` 12 accepts more than one incoming edge through ordinary dragging. The data layer already allows it: `gatherInputs` pushes one string per incoming text edge with no de-duplication by target handle, so `inputs.texts` can already exceed length 1 if such a connection exists. Whether the UI lets someone create one by hand is the open part, and task 12 needs an answer.
 - Whether `BaseNode`'s new `runDisabled` prop should stay cluster-only, extend to other cards, or be replaced with something else.
 
@@ -137,5 +137,5 @@ Fixture: `lib/stubs/cluster.json`, used when `hasLlmKey()` is false, covered by 
 3. Up to four pins per cluster, matching the four-groups cap (`MAX_PINS`). Built.
 4. Branch actions position the new node to the right and wire it immediately, no confirmation step. Built, with collision avoidance (`clearSpot`) rather than a fixed offset.
 5. The stub label composes into BaseNode's `modelLabel` slot. Built. This decision also said BaseNode would not otherwise change; it has since gained an unrelated, optional `runDisabled` prop, cluster-only today. Default until Nick says otherwise: leave it, since it is additive and every other card is unaffected.
-6. On schema failure, one retry, then the existing error banner; no fallback to the fixture once a real key exists. Not yet built (task 10).
+6. On schema failure, one retry, then the existing error banner; no fallback to the fixture once a real key exists. Built (task 10).
 7. (2026-09-20) Params stay split hybrid across the app: the cluster card keeps prompt, groups, pins and Re-roll all; the inspector gets nothing for this kind. No inspector work sits on the path to finishing tasks 8-12.

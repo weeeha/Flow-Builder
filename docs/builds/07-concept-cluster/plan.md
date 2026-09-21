@@ -1,10 +1,10 @@
 # Concept Cluster: build plan
 
-Total 3.5 h · Thin slice (tasks 1-7) built on `claude/design-system-component-reuse-321c19` @ 296bafe · 80 min open across tasks 8-12
+Total 3.5 h · Tasks 1-10 built (1-7 on `claude/design-system-component-reuse-321c19` @ 296bafe, 8-10 on `cluster-finish`) · open: task 11's Safari half, task 12 [HAND]
 
 ## Before you start
 - Work on a branch cut from `claude/design-system-component-reuse-321c19` at or after 296bafe, or from `main` once PRs #2 to #5 are merged into it.
-- Foundation F1-F4 and build 07 tasks 1-7 are already built (see Built below). Run `pnpm install && pnpm test` first: expect 10 files, 94 passed, 2 todo.
+- Foundation F1-F4 and build 07 tasks 1-10 are already built (see Built below). Run `pnpm install && pnpm test` first: expect 13 files, 114 passed, 2 todo.
 - `pnpm dev` runs clean; `pnpm typecheck` is clean before you start.
 - Note which provider keys are set locally (`AI_GATEWAY_API_KEY`, `FAL_KEY`, and similar). The acceptance walkthrough below depends on stub mode, meaning none of them set.
 
@@ -17,33 +17,18 @@ Total 3.5 h · Thin slice (tasks 1-7) built on `claude/design-system-component-r
 | 3-4. Cluster node on the fixture; pin and dynamic handles | 76e7dec | all four states render off the fixture; pin/unpin toggles `pinned`/`outputTexts`; a `TypedHandle` per pin; `useUpdateNodeInternals` after every change | add a cluster node, click Run, see the fixture's groups after the skeleton; pin a chip, drag a new edge from its handle to an existing node's text target, connection succeeds |
 | 5. Executor integration, fixture-backed | 21bcb67 | the `RunResult` discriminated union; a `"cluster"` branch in `runNode`/`runSingleNode`, resolving the fixture with no fetch | Run all with a cluster node and a downstream node completes without error |
 | 6-7. Branch action to image; Re-roll all | 1f64a90 | a pinned chip's "to image" wires a new Image node via `clearSpot` placement; "Re-roll all" replaces unpinned suggestions via `rerollGroups`/`nextStubGroups` | the new Image node appears already wired with the wire preview visible; pin one chip, wire it, re-roll all, the pinned chip and its edge are unchanged and everything else changed |
+| 8-9. To video; re-roll one group | b71f6f9 | `branchFromPin` in `lib/branch.ts` for both branch kinds; `rerollGroup` and `rerollClusterGroup`; a to-video button beside to-image and a shuffle button per group header; only the re-rolled group shows the skeleton | pin a chip, click to video, a wired Video node appears with the wire preview; re-roll one group, the other groups and every pin stay |
+| 10. Real LLM route | 596ce20 | `app/api/generate/cluster/route.ts` on `ai` ^7 (`generateText` + `Output.object`, one retry on a schema failure, fixture rotation without a key); the executor posts to it for Run, Run all and the per-group re-roll | with no key, Run returns the fixture through the request path; `curl` the route twice with the first answer's groups, the set rotates |
 
 ## Open tasks
 
-**8. Branch action: to video.** 10 min.
-Goal: same as the built "to image" action, for video nodes.
-Files: `components/nodes/cluster-node.tsx`.
-Steps: add a `branchToVideo` mirroring `branchToImage`, calling `addNode("video", spot)` and wiring the pin's port to the new node's text handle; render it next to "to image" using the same hand-rolled `<button>` and Tailwind pattern already in the file (it imports nothing from `components/ui` or `components/flow` today; this task should not be the first to add one).
-Verify: same as task 6, on a Video node.
+Tasks 8, 9 and 10 are built (see Built above).
 
-**9. Re-roll one group.** 10 min.
-Goal: a per-group control.
-Files: `components/nodes/cluster-node.tsx`; `lib/cluster.ts` if the merge needs a group-scoped entry point.
-Steps: replace only that group's unpinned suggestions, reusing `rerollGroups`'s pin-preserving behavior scoped to one group id; add a small icon button per group header matching the existing "Re-roll all" footer button's markup.
-Verify: re-roll one group; the other groups and all pins stay as they were.
-
-**10. Real LLM route.** 40 min.
-Goal: replace the executor's fixture shortcut with the actual model call.
-Files: `app/api/generate/cluster/route.ts` (new); `lib/executor.ts`.
-Steps: `generateObject({ model: LLM_MODEL, schema: ClusterResponse, ... })`; retry once on a schema failure, `{ error }` at 500 on a second; when `hasLlmKey()` is false, serve the fixture's next set through the same rotation `nextStubGroups` already does, so today's behavior does not regress; assign ids server-side with `assignIds` after the schema check; point the executor's `"cluster"` branch at this route instead of calling `nextStubGroups` directly.
-This is the app's first `generateObject` call: the schema-mismatch error shape, the AI Gateway slug, and zod 4 against `ai@^5` are all unverified until it runs (spec.md, Risks). Under Nick's 2026-09-20 build order this task runs before the registry, so the fetch goes into the executor's `"cluster"` branch and registry slice 3 moves it into `RUNNERS.cluster`. Settle the `ai` version before writing it: `^5.0.0` is installed and current AI Gateway guidance targets `^6`, so one upgrade before the first `generateObject` call keeps this route and build 11's on one API (HANDOFF.md, Next).
-Verify: with no `AI_GATEWAY_API_KEY` set, Run still returns the fixture, through the real request path, not the executor shortcut.
-
-**11. Cross-browser pass.** 10 min.
+**11. Cross-browser pass.** Chrome half done 2026-09-20, Safari half open.
 Goal: confirm the interaction model in both browsers that matter.
-Files: none, verification only.
-Steps: in Chrome and Safari, tab through a cluster node's chips, confirm focus is visible and Enter or Space toggles a pin; confirm a pinned handle connects in both. Use a visible, foregrounded window: a hidden or background tab can under-report React Flow edges and make Enter/Space look dead even when the page works.
-Verify: same behavior in both; note any difference. Safari is unverified for build 07 as of 2026-09-20.
+Files: `scripts/check-cluster-chrome.mjs` (run, 14/14) and `scripts/check-cluster-safari.mjs` (not yet run); verification only.
+Steps: with `pnpm dev` up, turn on Safari > Settings > Developer > Allow remote automation, start `safaridriver -p 4445`, run `node scripts/check-cluster-safari.mjs`. The script tabs to a chip and checks `:focus-visible`, toggles a pin with Enter and Space, drags a pinned handle onto a video node's text input, clicks to video and re-rolls one group, then writes a screenshot. The built-in Browser pane is no substitute: its synthetic Enter and Space do not fire default clicks.
+Verify: 14/14 in Safari; note any difference from Chrome.
 
 **12. [HAND] Finish effectivePrompt.** 10 min. Nick's, no agent.
 Goal: replace `lib/prompt.ts`'s provisional "both present" behavior with a real decision.
@@ -53,7 +38,7 @@ Worth weighing: `gatherInputs` pushes one string per incoming text edge with no 
 Verify: `pnpm test` green.
 
 ## Cut line
-If time runs short on what is open: drop task 8 (to video; keep to image only), then task 9 (per-group re-roll; keep re-roll all), then task 10 (stay on the fixture and say so in the node's stub label), then task 11's Safari half (verify Chrome only and note the gap). Tasks 1-7 are already built and are not on this list: pin becomes a wire, one branch action, and the wire surviving a re-roll are the point of the thin slice.
+Only task 11's Safari half and task 12 remain. The Safari half blocks nothing else and can wait for a session with Safari's remote automation switched on.
 
 ## Acceptance walkthrough (stub mode, zero keys)
 Setup: a cluster node on the canvas, already run once so four groups show, nothing pinned, empty space to its right.
