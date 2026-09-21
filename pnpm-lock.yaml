@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^2.0.0
         version: 2.0.106(zod@4.4.2)
+      '@runwayml/sdk':
+        specifier: 4.20.0
+        version: 4.20.0
       '@vercel/blob':
         specifier: ^1.0.0
         version: 1.1.1
@@ -485,6 +488,10 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@runwayml/sdk@4.20.0':
+    resolution: {integrity: sha512-CEm5787XjAzyaw8zv7Nah6CDdaQD5UJDMn+UaNtDn9VItHhX8GnL43GwkHlxYRQ9ePWgPMsz/ja08+4jtTqbDg==}
+    hasBin: true
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -2550,6 +2557,8 @@ snapshots:
   '@opentelemetry/api@1.9.0': {}
 
   '@rtsao/scc@1.1.0': {}
+
+  '@runwayml/sdk@4.20.0': {}
 
   '@standard-schema/spec@1.1.0': {}
 
