@@ -1,7 +1,7 @@
 "use client";
 
 import type { ClusterGroup, FlowEdge, FlowNode, PinnedSuggestion } from "./types";
-import { nextStubGroups, rerollGroup, rerollGroups, toOutputTexts } from "./cluster";
+import { rerollGroup, rerollGroups, toOutputTexts } from "./cluster";
 import { parseHandleId } from "./handles";
 import { effectivePrompt } from "./prompt";
 import { useFlowStore } from "./store";
@@ -71,19 +71,29 @@ type ClusterNode = Extract<FlowNode, { type: "cluster" }>;
 
 type RunResult = { kind: "url"; url: string } | ({ kind: "cluster" } & ClusterRoll);
 
-/** Long enough for the skeleton chips to read as loading. */
-const STUB_ROLL_MS = 600;
-
 /**
- * One roll for a cluster node. Thin slice: resolves the local fixture directly,
- * no fetch. Plan task 10 replaces this with a POST to /api/generate/cluster.
+ * One roll for a cluster node: a POST to the cluster route, which answers from
+ * the local fixture when no LLM key is set. Wired text is folded into
+ * data.prompt and texts goes out empty, as for the other routes.
  */
 async function rollCluster(node: ClusterNode, inputs: NodeInputs): Promise<ClusterRoll> {
-  if (!effectivePrompt(inputs.texts, node.data.prompt)) {
+  const prompt = effectivePrompt(inputs.texts, node.data.prompt);
+  if (!prompt) {
     throw new Error("Prompt is empty");
   }
-  await new Promise((resolve) => setTimeout(resolve, STUB_ROLL_MS));
-  return { groups: nextStubGroups(node.data.groups), stub: true };
+  const res = await fetch("/api/generate/cluster", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      data: { ...node.data, prompt },
+      inputs: { ...inputs, texts: [] },
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
+  }
+  return (await res.json()) as ClusterRoll;
 }
 
 /**

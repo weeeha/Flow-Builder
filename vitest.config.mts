@@ -15,6 +15,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": import.meta.dirname,
+      // Next.js provides "server-only" itself and throws from it outside a React
+      // Server Components build. Route tests import lib/llm.ts through it, so point
+      // it at Next's own empty variant here.
+      "server-only": `${import.meta.dirname}/node_modules/next/dist/compiled/server-only/empty.js`,
     },
   },
 });
