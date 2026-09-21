@@ -65,8 +65,8 @@ Nick's guess that the flow level is the simpler one matches the code.
 
 - The flow level is React Flow plus a 109-line executor (`lib/executor.ts` on `main`: gather inputs, topological sort, run in order). Adding the cluster kind changed `components/flow-canvas.tsx` by 2 lines.
 - The kind level takes the work. The cluster kind on `concept-cluster` added `cluster-node.tsx` (261 lines), `lib/cluster.ts` (138), a schema (22), a fixture (78) and 292 lines of tests.
-- Registering a kind touches 5 files with no single source of truth (commit `8958610`): `lib/types.ts`, `lib/store.ts` (`defaultData`), `components/node-toolbar.tsx`, `components/flow-canvas.tsx` (`nodeTypes`) and the node component. `lib/executor.ts` gets an `if (node.type === ...)` branch once the kind runs.
-- Ports are declared only in JSX inside each node component. Build 11's spec (`Runaway/builds/11-clip-to-graph/spec.md`) already plans a second copy, `NODE_HANDLES`, because its graph validator and its LLM prompt both need ports as data.
+- Registering a kind touches 5 files with no single source of truth (commit `b6f09a5`): `lib/types.ts`, `lib/store.ts` (`defaultData`), `components/node-toolbar.tsx`, `components/flow-canvas.tsx` (`nodeTypes`) and the node component. `lib/executor.ts` gets an `if (node.type === ...)` branch once the kind runs.
+- Ports are declared only in JSX inside each node component. Build 11's spec (`docs/builds/11-clip-to-graph/spec.md`) needs the same data as `NODE_HANDLES`, because its graph validator and its LLM prompt both need ports as data.
 - Two params have no control at all. The image `model` has 3 options in its type and the tts `model` has 2, and neither card renders a picker. The tts header label is hard-coded.
 - The pattern exists once already. `lib/models.ts` on `runway-node` holds `VIDEO_MODELS`, and its comment reads "Add a model here and both the UI and the dispatcher pick it up." The node registry is the same move one level up.
 
@@ -96,6 +96,7 @@ export type FieldSpec = { label: string; placement: "card" | "inspector"; group?
 export interface KindSpec<K extends NodeKind> {
   label: string;
   group: "generate" | "ideate" | "assemble";
+  palette?: boolean;                            // false keeps an app-created kind (reference) off the toolbar
   inputs: readonly PortSpec[];
   outputs: readonly PortSpec[] | ((data: DataOf<K>) => readonly PortSpec[]);
   fields: Partial<Record<KnownKeys<DataOf<K>>, FieldSpec>>;
@@ -143,7 +144,7 @@ The card header keeps its read-only model label, so the model in use stays visib
 
 ## Related work
 
-A coded Flow Kit sits on branch `wave-2-flow-foundation` of `weeeha/Super-AI-Components` (local checkout `~/ClaudeCode Projects/AI Components`, path `apps/docs/registry/super-ai/flow/`): ai-node, typed-handle, typed-edge, port-chip, connection-hint, node-prompt, media-slot, model-bar, run-button, node-status, use-flow-runner, each with a test file. It supplies parts for a node card, which makes it the UI half of the kind level. The tables above are the data half. On 2026-09-20 another session was converting `tts-node.tsx` to kit pieces (media-slot, node-prompt, node-status, run-button) on `claude/design-system-component-reuse-321c19`.
+A coded Flow Kit sits on branch `wave-2-flow-foundation` of `weeeha/Super-AI-Components` (local checkout `~/ClaudeCode Projects/AI Components`, path `apps/docs/registry/super-ai/flow/`): ai-node, typed-handle, typed-edge, port-chip, connection-hint, node-prompt, media-slot, model-bar, run-button, node-status, use-flow-runner, each with a test file. It supplies parts for a node card, which makes it the UI half of the kind level. The tables above are the data half. The tts card was converted to kit pieces (media-slot, node-prompt) on 2026-09-20, commit `296bafe` on `claude/design-system-component-reuse-321c19`.
 
 ## Out of scope for now
 
