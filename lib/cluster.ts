@@ -77,16 +77,46 @@ export function rerollGroups(
       id: was.id,
       axis: kept.axis,
       ...(kept.wild ? { wild: true } : {}),
-      suggestions: [
-        ...now.suggestions.map((s, j) => {
-          const old = was.suggestions[j];
-          return old && isPinned(old) ? old : s;
-        }),
-        ...was.suggestions.slice(now.suggestions.length).filter(isPinned),
-      ],
+      suggestions: mergeSuggestions(was, now, isPinned),
     });
   }
   return merged;
+}
+
+/** One row's slots after a roll: a pinned chip keeps its slot, every other slot takes the fresh one. */
+function mergeSuggestions(
+  was: ClusterGroup,
+  now: ClusterGroup,
+  isPinned: (s: { id: string }) => boolean
+): ClusterGroup["suggestions"] {
+  return [
+    ...now.suggestions.map((s, j) => {
+      const old = was.suggestions[j];
+      return old && isPinned(old) ? old : s;
+    }),
+    ...was.suggestions.slice(now.suggestions.length).filter(isPinned),
+  ];
+}
+
+/**
+ * Re-roll one row. That group's unpinned chips take the fresh roll's suggestions at
+ * the same index, a pinned chip keeps its slot, id and text, and the row keeps its
+ * own id, axis and wild flag. Every other group comes back untouched. An unknown
+ * group id, or a fresh roll with no row at that index, hands back the same array.
+ */
+export function rerollGroup(
+  current: ClusterGroup[],
+  fresh: ClusterGroup[],
+  pinned: PinnedSuggestion[],
+  groupId: string
+): ClusterGroup[] {
+  const i = current.findIndex((g) => g.id === groupId);
+  const was = current[i];
+  const now = fresh[i];
+  if (!was || !now) return current;
+  const pinnedIds = new Set(pinned.map((p) => p.id));
+  const suggestions = mergeSuggestions(was, now, (s) => pinnedIds.has(s.id));
+  return current.map((g, j) => (j === i ? { ...was, suggestions } : g));
 }
 
 export interface Box {

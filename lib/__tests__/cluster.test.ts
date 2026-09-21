@@ -4,6 +4,7 @@ import {
   assignIds,
   clearSpot,
   nextStubSetIndex,
+  rerollGroup,
   rerollGroups,
   toOutputTexts,
   togglePin,
@@ -193,5 +194,46 @@ describe("nextStubSetIndex", () => {
     const current = assignIds(setA.groups);
     const mixed = rerollGroups(current, assignIds(setB.groups), [pinOf(current, 0, 0)]);
     expect(nextStubSetIndex(mixed, fixture.sets)).toBe(0);
+  });
+});
+
+describe("rerollGroup", () => {
+  it("replaces only that group's unpinned chips and leaves every other group as it was", () => {
+    const current = assignIds(setA.groups);
+    const fresh = assignIds(setB.groups);
+    const merged = rerollGroup(current, fresh, [], current[1].id);
+    expect(merged[1].suggestions.map((s) => s.text)).toEqual(fresh[1].suggestions.map((s) => s.text));
+    expect(merged[0]).toBe(current[0]);
+    expect(merged[2]).toBe(current[2]);
+    expect(merged[3]).toBe(current[3]);
+  });
+
+  it("keeps a pinned chip in that group, same slot, id and text", () => {
+    const current = assignIds(setA.groups);
+    const pin = pinOf(current, 1, 2);
+    const merged = rerollGroup(current, assignIds(setB.groups), [pin], current[1].id);
+    expect(merged[1].suggestions[2]).toBe(current[1].suggestions[2]);
+    expect(merged[1].suggestions[0].id).not.toBe(current[1].suggestions[0].id);
+  });
+
+  it("keeps the group's id, axis and wild flag, whatever the fresh row says", () => {
+    const current = assignIds(setA.groups);
+    const fresh = assignIds(setB.groups.map((g) => ({ axis: "lens", suggestions: g.suggestions })));
+    const merged = rerollGroup(current, fresh, [], current[3].id);
+    expect(merged[3].id).toBe(current[3].id);
+    expect(merged[3].axis).toBe("material");
+    expect(merged[3].wild).toBe(true);
+  });
+
+  it("hands back the same array for a group id it does not know", () => {
+    const current = assignIds(setA.groups);
+    expect(rerollGroup(current, assignIds(setB.groups), [], "g-nope")).toBe(current);
+  });
+
+  it("does not mutate the groups on screen", () => {
+    const current = assignIds(setA.groups);
+    const before = JSON.stringify(current);
+    rerollGroup(current, assignIds(setB.groups), [pinOf(current, 1, 1)], current[1].id);
+    expect(JSON.stringify(current)).toBe(before);
   });
 });

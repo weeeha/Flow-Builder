@@ -1,7 +1,7 @@
 "use client";
 
-import type { ClusterGroup, FlowEdge, FlowNode } from "./types";
-import { nextStubGroups, rerollGroups, toOutputTexts } from "./cluster";
+import type { ClusterGroup, FlowEdge, FlowNode, PinnedSuggestion } from "./types";
+import { nextStubGroups, rerollGroup, rerollGroups, toOutputTexts } from "./cluster";
 import { parseHandleId } from "./handles";
 import { effectivePrompt } from "./prompt";
 import { useFlowStore } from "./store";
@@ -66,22 +66,48 @@ function topologicalSort(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   return result;
 }
 
-type RunResult =
-  | { kind: "url"; url: string }
-  | { kind: "cluster"; groups: ClusterGroup[]; stub: boolean };
+type ClusterRoll = { groups: ClusterGroup[]; stub: boolean };
+type ClusterNode = Extract<FlowNode, { type: "cluster" }>;
+
+type RunResult = { kind: "url"; url: string } | ({ kind: "cluster" } & ClusterRoll);
 
 /** Long enough for the skeleton chips to read as loading. */
 const STUB_ROLL_MS = 600;
 
+/**
+ * One roll for a cluster node. Thin slice: resolves the local fixture directly,
+ * no fetch. Plan task 10 replaces this with a POST to /api/generate/cluster.
+ */
+async function rollCluster(node: ClusterNode, inputs: NodeInputs): Promise<ClusterRoll> {
+  if (!effectivePrompt(inputs.texts, node.data.prompt)) {
+    throw new Error("Prompt is empty");
+  }
+  await new Promise((resolve) => setTimeout(resolve, STUB_ROLL_MS));
+  return { groups: nextStubGroups(node.data.groups), stub: true };
+}
+
+/**
+ * Write a roll into a cluster node. Reads the node again first: a chip can be
+ * pinned while the roll is in flight, and pins win.
+ */
+function applyClusterRoll(
+  nodeId: string,
+  roll: ClusterRoll,
+  merge: (current: ClusterGroup[], fresh: ClusterGroup[], pinned: PinnedSuggestion[]) => ClusterGroup[]
+) {
+  const { nodes, updateNodeData } = useFlowStore.getState();
+  const fresh = nodes.find((n) => n.id === nodeId);
+  if (fresh?.type !== "cluster") return;
+  updateNodeData(nodeId, {
+    groups: merge(fresh.data.groups, roll.groups, fresh.data.pinned),
+    outputTexts: toOutputTexts(fresh.data.pinned),
+    stub: roll.stub,
+  });
+}
+
 async function runNode(node: FlowNode, inputs: NodeInputs): Promise<RunResult> {
   if (node.type === "cluster") {
-    if (!effectivePrompt(inputs.texts, node.data.prompt)) {
-      throw new Error("Prompt is empty");
-    }
-    // Thin slice: resolves the local fixture directly, no fetch. Plan task 10
-    // replaces this with a POST to /api/generate/cluster.
-    await new Promise((resolve) => setTimeout(resolve, STUB_ROLL_MS));
-    return { kind: "cluster", groups: nextStubGroups(node.data.groups), stub: true };
+    return { kind: "cluster", ...(await rollCluster(node, inputs)) };
   }
 
   const endpoint =
@@ -127,18 +153,30 @@ export async function runSingleNode(nodeId: string) {
     const inputs = gatherInputs(nodeId, nodes, edges);
     const result = await runNode(node, inputs);
     if (result.kind === "cluster") {
-      // Read the node again: a chip can be pinned while the roll is in flight, and pins win.
-      const fresh = useFlowStore.getState().nodes.find((n) => n.id === nodeId);
-      if (fresh?.type === "cluster") {
-        updateNodeData(nodeId, {
-          groups: rerollGroups(fresh.data.groups, result.groups, fresh.data.pinned),
-          outputTexts: toOutputTexts(fresh.data.pinned),
-          stub: result.stub,
-        });
-      }
+      applyClusterRoll(nodeId, result, rerollGroups);
     } else {
       updateNodeData(nodeId, { outputUrl: result.url, videoUrl: result.url });
     }
+    setNodeStatus(nodeId, "done");
+  } catch (err) {
+    setNodeStatus(nodeId, "error", (err as Error).message);
+  }
+}
+
+/**
+ * Re-roll one group of a cluster node. The roll is fetched the same way Run
+ * fetches it; only that group's unpinned chips take from it.
+ */
+export async function rerollClusterGroup(nodeId: string, groupId: string) {
+  const { nodes, edges, setNodeStatus } = useFlowStore.getState();
+  const node = nodes.find((n) => n.id === nodeId);
+  if (node?.type !== "cluster") return;
+  setNodeStatus(nodeId, "running");
+  try {
+    const roll = await rollCluster(node, gatherInputs(nodeId, nodes, edges));
+    applyClusterRoll(nodeId, roll, (current, fresh, pinned) =>
+      rerollGroup(current, fresh, pinned, groupId)
+    );
     setNodeStatus(nodeId, "done");
   } catch (err) {
     setNodeStatus(nodeId, "error", (err as Error).message);

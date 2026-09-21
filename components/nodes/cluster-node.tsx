@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
-import { ImagePlus, Pin, Shuffle, Sparkles } from "lucide-react";
+import { ImagePlus, Pin, Shuffle, Sparkles, Video, type LucideIcon } from "lucide-react";
 import { TypedHandle } from "@/components/handles/typed-handle";
-import { MAX_PINS, clearSpot, toOutputTexts, togglePin } from "@/lib/cluster";
-import { gatherInputs, runSingleNode } from "@/lib/executor";
+import { CLUSTER_WIDTH, branchFromPin, type BranchKind } from "@/lib/branch";
+import { MAX_PINS, toOutputTexts, togglePin } from "@/lib/cluster";
+import { gatherInputs, rerollClusterGroup, runSingleNode } from "@/lib/executor";
 import { handleId } from "@/lib/handles";
 import { DEFAULT_LLM_MODEL, llmModelLabel } from "@/lib/models";
 import { useFlowStore } from "@/lib/store";
@@ -17,15 +18,13 @@ import { WirePreview } from "./wire-preview";
 type Props = NodeProps<Extract<FlowNode, { type: "cluster" }>>;
 type Suggestion = ClusterGroup["suggestions"][number];
 
-const WIDTH = 380;
 const SKELETON_GROUPS = 4;
 const CHIPS_PER_GROUP = 3;
 
-// A branched Image node: rough size for collision checks, the gap the wire spans,
-// and how far below its top edge its text handle sits (see image-node.tsx).
-const BRANCH_BOX = { width: 320, height: 360 };
-const BRANCH_GAP = 120;
-const TEXT_HANDLE_TOP = 24;
+const BRANCH_ACTIONS: { kind: BranchKind; Icon: LucideIcon; label: string }[] = [
+  { kind: "image", Icon: ImagePlus, label: "to image" },
+  { kind: "video", Icon: Video, label: "to video" },
+];
 
 // Nothing else in the app has a :focus-visible style yet, so the chips bring their own.
 const focusRing =
@@ -38,6 +37,8 @@ export function ClusterNode({ id, data, selected }: Props) {
     (s) => gatherInputs(id, s.nodes, s.edges).texts.length > 0
   );
   const updateNodeInternals = useUpdateNodeInternals();
+  // The group being re-rolled on its own, so only its chips show the skeleton.
+  const [rerolling, setRerolling] = useState<string | null>(null);
 
   const running = data.status === "running";
   const hasSeed = Boolean(data.prompt.trim()) || hasWiredSeed;
@@ -74,33 +75,20 @@ export function ClusterNode({ id, data, selected }: Props) {
     updateNodeData(id, { pinned: next, outputTexts: toOutputTexts(next) });
   };
 
+  const onRerollGroup = async (groupId: string) => {
+    setRerolling(groupId);
+    try {
+      await rerollClusterGroup(id, groupId);
+    } finally {
+      setRerolling(null);
+    }
+  };
+
   // No confirmation step: the new node appears to the right, already wired.
-  const branchToImage = (pinId: string, row: HTMLElement | null) => {
-    const { nodes, addNode, onConnect } = useFlowStore.getState();
-    const self = nodes.find((n) => n.id === id);
-    if (!self) return;
-    // offsetTop is in flow units whatever the zoom, so the new node's text handle
-    // lines up with this chip's handle and the wire runs straight across.
-    const handleY = row ? row.offsetTop + row.offsetHeight / 2 : TEXT_HANDLE_TOP;
-    const spot = clearSpot(
-      {
-        x: self.position.x + (self.measured?.width ?? WIDTH) + BRANCH_GAP,
-        y: self.position.y + handleY - TEXT_HANDLE_TOP,
-        ...BRANCH_BOX,
-      },
-      nodes.map((n) => ({
-        ...n.position,
-        width: n.measured?.width ?? BRANCH_BOX.width,
-        height: n.measured?.height ?? BRANCH_BOX.height,
-      }))
-    );
-    const target = addNode("image", spot);
-    onConnect({
-      source: id,
-      sourceHandle: handleId(id, "text", pinId),
-      target,
-      targetHandle: handleId(target, "text"),
-    });
+  // offsetTop is in flow units whatever the zoom, so the new node's text handle
+  // lines up with this chip's handle and the wire runs straight across.
+  const branch = (kind: BranchKind, pinId: string, row: HTMLElement | null) => {
+    branchFromPin(kind, id, pinId, row ? row.offsetTop + row.offsetHeight / 2 : undefined);
   };
 
   return (
@@ -111,7 +99,7 @@ export function ClusterNode({ id, data, selected }: Props) {
       status={data.status}
       error={data.error}
       selected={selected}
-      width={WIDTH}
+      width={CLUSTER_WIDTH}
       runDisabled={!hasSeed}
       footer={
         data.groups.length > 0 && (
@@ -188,13 +176,25 @@ export function ClusterNode({ id, data, selected }: Props) {
                     surprising
                   </span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => onRerollGroup(group.id)}
+                  disabled={running || !hasSeed}
+                  aria-label={`Re-roll ${group.axis}`}
+                  className={cn(
+                    "ml-auto rounded p-0.5 text-neutral-400 hover:text-neutral-700 disabled:opacity-50",
+                    focusRing
+                  )}
+                >
+                  <Shuffle size={10} aria-hidden />
+                </button>
               </div>
               <ul className="space-y-1">
                 {group.suggestions.map((s) => {
                   const pinned = pinnedIds.has(s.id);
                   // A pinned chip stays mounted through a run, or its handle and wire would
                   // drop. A chip being re-rolled keeps its own box, so nothing pinned moves.
-                  if (running && !pinned) {
+                  if (running && !pinned && (rerolling === null || rerolling === group.id)) {
                     return (
                       <li key={s.id} className={cn("rounded-lg", pulse)} aria-hidden>
                         <span className="invisible block border border-transparent px-2 py-1.5 text-[12px] leading-snug">
@@ -226,18 +226,21 @@ export function ClusterNode({ id, data, selected }: Props) {
                       </button>
                       {pinned && (
                         <>
-                          <button
-                            type="button"
-                            onClick={(e) => branchToImage(s.id, e.currentTarget.closest("li"))}
-                            aria-label={`Send ${group.axis} concept to image node`}
-                            className={cn(
-                              "flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 text-[11px] font-medium text-neutral-700 hover:border-neutral-400",
-                              focusRing
-                            )}
-                          >
-                            <ImagePlus size={12} aria-hidden />
-                            to image
-                          </button>
+                          {BRANCH_ACTIONS.map(({ kind, Icon, label }) => (
+                            <button
+                              key={kind}
+                              type="button"
+                              onClick={(e) => branch(kind, s.id, e.currentTarget.closest("li"))}
+                              aria-label={`Send ${group.axis} concept to ${kind} node`}
+                              className={cn(
+                                "flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 text-[11px] font-medium text-neutral-700 hover:border-neutral-400",
+                                focusRing
+                              )}
+                            >
+                              <Icon size={12} aria-hidden />
+                              {label}
+                            </button>
+                          ))}
                           <TypedHandle
                             id={id}
                             type="source"
