@@ -1,10 +1,16 @@
-# Handoff · Flow Builder · 2026-09-20 22:05 EDT
-Branch: claude/roadmap-specs-review-d07960 (docs, local, off `main` 74098b2, not pushed) · Code: merged into `claude/design-system-component-reuse-321c19`, now 571fe09 locally (b71f6f9 tasks 8-9, 596ce20 task 10, 571fe09 check scripts); `origin` still holds 296bafe for that branch · PR: none new; PR #5's branch is 3 commits ahead locally · Preview: http://localhost:3000 while `pnpm dev` runs in the design-system worktree
+# Handoff · Flow Builder · 2026-09-21 00:15 EDT
+Branch: claude/roadmap-specs-review-d07960 (docs, local, off `main` 74098b2, not pushed) · Code: build 07 merged into `claude/design-system-component-reuse-321c19` (571fe09); registry slice 1 on `node-registry` (72068df, off 571fe09, not merged) · `origin` still holds 296bafe for the design-system branch · PR: none new · Preview: http://localhost:3000 while `pnpm dev` runs in the design-system worktree
 
 ## Goal
 Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept Cluster, 11 Clip to graph) and add the inspector and node registry from CONCEPT.md, in the order Nick chose on 2026-09-20 (order 4: finish 07, registry slice 1, inspector, runners and views, then build 11).
 
-## Done (this session)
+## Done (registry slice 1, 2026-09-21)
+- `lib/node-kinds.ts`: `NODE_KINDS` keyed by kind, closed with `satisfies`, holding label, group, ports, param fields and starting data. Helpers `initialData`, `outputsOf`, `portTop`, `inPalette`, `PALETTE_KINDS`, `NODE_KIND_LIST`. Pure data, no React.
+- `lib/store.ts` lost `defaultData` and `components/node-toolbar.tsx` lost `NODE_BUTTONS`; both read the table. Icons stay in the toolbar behind an exhaustive `Record<NodeKind, ReactNode>` until slice 3. Nothing changed on screen.
+- Tests: `lib/__tests__/node-kinds.test.ts` (23) pins today's defaults, every kind's port list, the card/inspector split and the palette rule; `lib/__tests__/store.test.ts` (8) pins what `addNode` produces. Suite 15 files, 145 passed, 2 todo; typecheck clean. The pinning tests were checked for teeth by changing a table value and watching them fail.
+- Verified in headless Chrome against this branch: all five toolbar buttons add their card (`scripts/check-palette-chrome.mjs`, 7/7, new and committed), the cluster path still passes 14/14, and a graph saved in the pre-registry shape reloads with its nodes, edges, prompts, model and duration intact.
+
+## Done (build 07, 2026-09-20)
 - Reviewed CONCEPT.md, HANDOFF.md and the four build docs against the code at 296bafe; every checkable claim held. Docs moved onto this branch, which is based on the merged `main`, and updated as work landed.
 - Build 07 tasks 8, 9 and 10 built test first on a task branch, then fast-forwarded into `claude/design-system-component-reuse-321c19` (571fe09) with the suite green on the merged tree: `lib/branch.ts` (`branchFromPin`, both branch kinds, tested against the real store), `rerollGroup` and `rerollClusterGroup` (one group re-rolls alone, pins win), the to-video button and a shuffle button per group header, and `app/api/generate/cluster/route.ts` (fixture rotation without a key, `generateText` with `Output.object` and one retry on a schema failure with a key). The executor posts to the route for Run, Run all and the per-group re-roll.
 - `ai` upgraded from ^5 to ^7 (registry `latest`; v6 is already a legacy dist-tag and nothing imported `ai` before this route). `generateObject` is deprecated since AI SDK 6, so the route uses `generateText` with `Output.object`. `vitest.config.mts` aliases `server-only` to Next's empty shim so route tests can import `lib/llm.ts`.
@@ -37,17 +43,19 @@ Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept 
 - `vi.mock("server-only")` · vitest cannot resolve a module that only Next provides; the alias to `next/dist/compiled/server-only/empty.js` works.
 - Selecting suggestion groups by `[role=group]` index in the check scripts · React Flow adds its own `role=group` elements per edge, which shifts the indices; select by the `"<axis> suggestions"` label instead.
 - Generating the inspector form from zod introspection; one definition object per kind · see CONCEPT.md, unchanged.
+- Importing `NODE_KINDS` into the palette check script · Node's resolver cannot follow the table's extensionless imports, and a script that imports the table only proves it equals itself. The script keeps its own copy of the five labels on purpose.
+- An all-optional parameter for `inPalette` · TypeScript's weak-type rule rejects a spec with no `palette` key, so the parameter requires `label`.
 
 ## Next (do in order)
+0. Decide where `node-registry` (72068df) goes: merge into the design-system line as build 07 was, or keep it separate. Then slice 2, the inspector, branches from wherever it lands.
 1. Nick: turn on Safari > Settings > Developer > Allow remote automation, then with `pnpm dev` up run `safaridriver -p 4445 &` and `node scripts/check-cluster-safari.mjs`. Expect 14/14; note any difference from Chrome.
 2. Publish, with Nick's go: push `claude/design-system-component-reuse-321c19` (updates PR #5 with tasks 8-10); push this docs branch and open a PR against `main`.
-3. Registry slice 1, about 1 h, no visible change: `lib/node-kinds.ts` per CONCEPT.md. Tests pin today's `defaultData` and port lists first. Branch off `claude/design-system-component-reuse-321c19`.
-4. Inspector (slice 2): the first visible result. `inspectorTarget(nodes, lastId)` stays a [HAND] stub.
-5. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; move the cluster fetch from `rollCluster` into `RUNNERS.cluster`; the executor and `nodeTypes` read the tables.
-6. Build 11 thin slice, tasks 1 to 8, on the finished registry.
-7. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
-8. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
-9. First real model call, when a key exists: set `AI_GATEWAY_API_KEY` in `.env.local`, Run a cluster node, and confirm the three unverified items in the 07 spec (schema-failure error class, plain string slug through the gateway, zod 4 `.refine` against `Output.object`).
+3. Inspector (slice 2): the first visible result, built on `NODE_KINDS[kind].fields` where `placement` is `inspector`. Move the video model and duration and the tts voice off the cards; add the image and tts model controls the table already describes. `inspectorTarget(nodes, lastId)` stays a [HAND] stub.
+4. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; move the cluster fetch from `rollCluster` into `RUNNERS.cluster`; the executor and `nodeTypes` read the tables.
+5. Build 11 thin slice, tasks 1 to 8, on the finished registry.
+6. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
+7. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
+8. First real model call, when a key exists: set `AI_GATEWAY_API_KEY` in `.env.local`, Run a cluster node, and confirm the three unverified items in the 07 spec (schema-failure error class, plain string slug through the gateway, zod 4 `.refine` against `Output.object`).
 
 ## Verify
-`pnpm test` passes (13 files, 114 passed, 2 todo) and `pnpm typecheck` is clean. `node scripts/check-cluster-chrome.mjs` reports 14/14 against `pnpm dev`. Each build plan ends with an acceptance walkthrough that runs in stub mode with zero keys; a build is done when its walkthrough plays in Chrome and Safari.
+`pnpm test` passes (15 files, 145 passed, 2 todo on `node-registry`; 13 files, 114 passed on the design-system line) and `pnpm typecheck` is clean. Run typecheck with no `pnpm dev` running in the same worktree: a dev server rewrites `.next/dev/types/validator.ts` while tsc reads it and the torn file reports a bogus TS1434. `rm -rf .next/dev/types` clears it. `node scripts/check-cluster-chrome.mjs` reports 14/14 against `pnpm dev`. Each build plan ends with an acceptance walkthrough that runs in stub mode with zero keys; a build is done when its walkthrough plays in Chrome and Safari.

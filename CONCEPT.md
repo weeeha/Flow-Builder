@@ -72,6 +72,12 @@ Nick's guess that the flow level is the simpler one matches the code.
 
 ## The contract (recommended for now)
 
+**Slice 1 built 2026-09-21** on branch `node-registry` (72068df, off the merged design-system line): `lib/node-kinds.ts` holds `NODE_KINDS` exactly as below, and `lib/store.ts` and `components/node-toolbar.tsx` derive from it. Four things the table grew on contact with the code:
+- `initialData(kind)` deep-copies through `structuredClone` and adds `status`, so two nodes never share the cluster's `groups` array.
+- `inPalette(spec)` takes a spec rather than reading the table, so build 11's `palette: false` is testable before a kind uses it. It requires `label` because TypeScript's weak-type rule rejects an all-optional parameter.
+- `portTop(ports, i)` holds the stacking rule (one port centred, several at 24 + 32i, `top` overriding), ready for `BaseNode` in slice 3.
+- `InitialData<K>` strips `BaseNodeData`'s index signature before `Omit`, or the required params would go unchecked.
+
 Three tables keyed by `NodeKind`. Each closes with `satisfies { [K in NodeKind]: ... }`, so the compiler reports a kind that lacks an entry.
 
 | Table | File | Holds | Imported by |
