@@ -10,17 +10,8 @@ import {
   type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
-import type {
-  ClusterNodeData,
-  CompositionNodeData,
-  FlowEdge,
-  FlowNode,
-  ImageNodeData,
-  NodeKind,
-  NodeStatus,
-  TTSNodeData,
-  VideoNodeData,
-} from "./types";
+import { initialData } from "./node-kinds";
+import type { FlowEdge, FlowNode, NodeKind, NodeStatus } from "./types";
 
 interface FlowState {
   nodes: FlowNode[];
@@ -37,36 +28,6 @@ interface FlowState {
 
 let nodeCounter = 0;
 const nextId = (kind: NodeKind) => `${kind}-${++nodeCounter}-${Date.now().toString(36)}`;
-
-const defaultData: Record<NodeKind, FlowNode["data"]> = {
-  image: {
-    status: "idle",
-    prompt: "",
-    model: "flux-dev",
-  } satisfies ImageNodeData,
-  video: {
-    status: "idle",
-    prompt: "",
-    model: "seedance-2.0",
-    duration: 4,
-  } satisfies VideoNodeData,
-  tts: {
-    status: "idle",
-    prompt: "",
-    voice: "Rachel",
-    model: "eleven_multilingual_v2",
-  } satisfies TTSNodeData,
-  composition: {
-    status: "idle",
-  } satisfies CompositionNodeData,
-  cluster: {
-    status: "idle",
-    prompt: "",
-    groups: [],
-    pinned: [],
-    outputTexts: {},
-  } satisfies ClusterNodeData,
-};
 
 export const useFlowStore = create<FlowState>()(
   persist(
@@ -93,7 +54,7 @@ export const useFlowStore = create<FlowState>()(
           id,
           type: kind,
           position,
-          data: { ...defaultData[kind] },
+          data: initialData(kind),
         } as FlowNode;
         set({ nodes: [...get().nodes, newNode] });
         return id;

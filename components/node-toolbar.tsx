@@ -4,15 +4,19 @@ import { useReactFlow } from "@xyflow/react";
 import { ImageIcon, Video, AudioLines, Layers, Play, Sparkles } from "lucide-react";
 import { useFlowStore } from "@/lib/store";
 import { runAll } from "@/lib/executor";
+import { NODE_KINDS, PALETTE_KINDS } from "@/lib/node-kinds";
 import type { NodeKind } from "@/lib/types";
 
-const NODE_BUTTONS: { kind: NodeKind; label: string; icon: React.ReactNode }[] = [
-  { kind: "image", label: "Image", icon: <ImageIcon size={18} /> },
-  { kind: "video", label: "Video", icon: <Video size={18} /> },
-  { kind: "tts", label: "Text to Speech", icon: <AudioLines size={18} /> },
-  { kind: "composition", label: "Composition", icon: <Layers size={18} /> },
-  { kind: "cluster", label: "Concept Cluster", icon: <Sparkles size={18} /> },
-];
+// The one thing the kind table cannot hold, because it stays free of React.
+// Slice 3 moves this into NODE_VIEWS beside each card; the Record keeps the
+// compiler on a new kind until then.
+const ICONS: Record<NodeKind, React.ReactNode> = {
+  image: <ImageIcon size={18} />,
+  video: <Video size={18} />,
+  tts: <AudioLines size={18} />,
+  composition: <Layers size={18} />,
+  cluster: <Sparkles size={18} />,
+};
 
 export function NodeToolbar() {
   const addNode = useFlowStore((s) => s.addNode);
@@ -38,14 +42,14 @@ export function NodeToolbar() {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center">
       <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-lg">
-        {NODE_BUTTONS.map((b) => (
+        {PALETTE_KINDS.map((kind) => (
           <button
-            key={b.kind}
-            onClick={() => handleAdd(b.kind)}
-            title={`Add ${b.label}`}
+            key={kind}
+            onClick={() => handleAdd(kind)}
+            title={`Add ${NODE_KINDS[kind].label}`}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
           >
-            {b.icon}
+            {ICONS[kind]}
           </button>
         ))}
         <div className="mx-1 h-6 w-px bg-neutral-200" />
