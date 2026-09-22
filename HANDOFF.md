@@ -1,8 +1,16 @@
-# Handoff · Flow Builder · 2026-09-21 00:15 EDT
-Branch: claude/roadmap-specs-review-d07960 (docs, local, off `main` 74098b2, not pushed) · Code: build 07 merged into `claude/design-system-component-reuse-321c19` (571fe09); registry slice 1 on `node-registry` (72068df, off 571fe09, not merged) · `origin` still holds 296bafe for the design-system branch · PR: none new · Preview: http://localhost:3000 while `pnpm dev` runs in the design-system worktree
+# Handoff · Flow Builder · 2026-09-21 01:05 EDT
+Branch: claude/roadmap-specs-review-d07960 (docs, local, off `main` 74098b2, not pushed) · Code: build 07 merged into `claude/design-system-component-reuse-321c19` (571fe09); registry slice 1 merged into the design-system line (72068df); slice 2, the inspector, on `inspector` (629bf1b, off 72068df, not merged) · `origin` still holds 296bafe for the design-system branch · PR: none new · Preview: http://localhost:3000 while `pnpm dev` runs in the design-system worktree
 
 ## Goal
 Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept Cluster, 11 Clip to graph) and add the inspector and node registry from CONCEPT.md, in the order Nick chose on 2026-09-20 (order 4: finish 07, registry slice 1, inspector, runners and views, then build 11).
+
+## Done (registry slice 2, the inspector, 2026-09-21)
+- `components/inspector.tsx`: a right-hand `aside` for the one selected node, rendering every `placement: "inspector"` field from the kind table, in table order. Non-modal by construction: no overlay, no focus trap, canvas stays live.
+- `lib/inspector.ts`: `inspectorFields`, `fieldValue` (a select writes the option's own value, so `duration` stays a number), and `inspectorTarget` as a [HAND] stub carrying `lastId`.
+- The video card gave up its model and duration selects, the tts card its voice select. The image and tts model pickers exist for the first time. `optionLabel` feeds every card header, so tts stops hard-coding its model name.
+- Icons moved to `components/nodes/icons.tsx`, shared by toolbar and panel until slice 3.
+- Suite 17 files, 171 passed, 3 todo; typecheck clean. `components/inspector.test.tsx` drives the real Radix selects under jsdom.
+- Verified in headless Chrome, `scripts/check-inspector-chrome.mjs`, 15/15. The palette check still passes 7/7 and the cluster check 14/14.
 
 ## Done (registry slice 1, 2026-09-21)
 - `lib/node-kinds.ts`: `NODE_KINDS` keyed by kind, closed with `satisfies`, holding label, group, ports, param fields and starting data. Helpers `initialData`, `outputsOf`, `portTop`, `inPalette`, `PALETTE_KINDS`, `NODE_KIND_LIST`. Pure data, no React.
@@ -45,17 +53,18 @@ Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept 
 - Generating the inspector form from zod introspection; one definition object per kind · see CONCEPT.md, unchanged.
 - Importing `NODE_KINDS` into the palette check script · Node's resolver cannot follow the table's extensionless imports, and a script that imports the table only proves it equals itself. The script keeps its own copy of the five labels on purpose.
 - An all-optional parameter for `inPalette` · TypeScript's weak-type rule rejects a spec with no `palette` key, so the parameter requires `label`.
+- Radix Dialog or Sheet for the inspector · both are modal, and the canvas has to stay usable while it is open.
+- A fixed sleep after the cluster script's re-roll · on a cold dev server the first request to the cluster route waits for Next to compile it, which read as a failed re-roll. It polls now.
 
 ## Next (do in order)
-0. Decide where `node-registry` (72068df) goes: merge into the design-system line as build 07 was, or keep it separate. Then slice 2, the inspector, branches from wherever it lands.
+0. Decide where `inspector` (629bf1b) goes: merge into the design-system line as slice 1 was, or keep it separate. Slice 3 branches from wherever it lands.
 1. Nick: turn on Safari > Settings > Developer > Allow remote automation, then with `pnpm dev` up run `safaridriver -p 4445 &` and `node scripts/check-cluster-safari.mjs`. Expect 14/14; note any difference from Chrome.
 2. Publish, with Nick's go: push `claude/design-system-component-reuse-321c19` (updates PR #5 with tasks 8-10); push this docs branch and open a PR against `main`.
-3. Inspector (slice 2): the first visible result, built on `NODE_KINDS[kind].fields` where `placement` is `inspector`. Move the video model and duration and the tts voice off the cards; add the image and tts model controls the table already describes. `inspectorTarget(nodes, lastId)` stays a [HAND] stub.
-4. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; move the cluster fetch from `rollCluster` into `RUNNERS.cluster`; the executor and `nodeTypes` read the tables.
-5. Build 11 thin slice, tasks 1 to 8, on the finished registry.
-6. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
-7. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
-8. First real model call, when a key exists: set `AI_GATEWAY_API_KEY` in `.env.local`, Run a cluster node, and confirm the three unverified items in the 07 spec (schema-failure error class, plain string slug through the gateway, zod 4 `.refine` against `Output.object`).
+3. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; move the cluster fetch from `rollCluster` into `RUNNERS.cluster`; the executor and `nodeTypes` read the tables.
+4. Build 11 thin slice, tasks 1 to 8, on the finished registry.
+5. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
+6. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
+7. First real model call, when a key exists: set `AI_GATEWAY_API_KEY` in `.env.local`, Run a cluster node, and confirm the three unverified items in the 07 spec (schema-failure error class, plain string slug through the gateway, zod 4 `.refine` against `Output.object`).
 
 ## Verify
 `pnpm test` passes (15 files, 145 passed, 2 todo on `node-registry`; 13 files, 114 passed on the design-system line) and `pnpm typecheck` is clean. Run typecheck with no `pnpm dev` running in the same worktree: a dev server rewrites `.next/dev/types/validator.ts` while tsc reads it and the torn file reports a bogus TS1434. `rm -rf .next/dev/types` clears it. `node scripts/check-cluster-chrome.mjs` reports 14/14 against `pnpm dev`. Each build plan ends with an acceptance walkthrough that runs in stub mode with zero keys; a build is done when its walkthrough plays in Chrome and Safari.

@@ -143,6 +143,13 @@ The card header keeps its read-only model label, so the model in use stays visib
 
 ## Inspector behaviour
 
+**Slice 2 built 2026-09-21** on branch `inspector` (629bf1b): `components/inspector.tsx` renders every field whose `placement` is `inspector`, in table order, for the one selected node. What the build added beyond the description below:
+- `lib/inspector.ts` holds the pure part: `inspectorFields(kind)`, `fieldValue(spec, raw)` (a select writes the option's own value, so `duration` stays the number 6), and the `inspectorTarget` [HAND] stub.
+- `optionLabel(kind, key, value)` in the kind table feeds the card headers, so the tts card stops hard-coding its model name and every header reads the same label the panel shows.
+- The video card keeps a read-only `4s` in its footer, so the duration stays visible once its select moves to the panel.
+- Icons live in `components/nodes/icons.tsx`, shared by the toolbar and the panel until slice 3 folds them into `NODE_VIEWS`.
+- The More/Less toggle is built but renders only when a field declares `group: "advanced"`. None does yet.
+
 - A right-hand `aside` floating over the canvas, about 340px wide (estimated from the screenshot). It is non-modal: no overlay, no focus trap, and the canvas stays interactive. Radix Dialog and Sheet are modal, so use a plain positioned element.
 - It shows when exactly one node is selected. Header: kind icon and label. Body: every `placement: "inspector"` field. Fields with `group: "advanced"` sit behind a More/Less toggle, as in the reference.
 - Controls come from `components/ui` (select, input, textarea). Every control has a visible label and a focus ring, and the panel follows the canvas in tab order.
