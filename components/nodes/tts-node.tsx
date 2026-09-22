@@ -5,22 +5,14 @@ import { useState } from "react";
 import { TypedHandle } from "@/components/handles/typed-handle";
 import { MediaSlot } from "@/components/flow/media-slot";
 import { NodePrompt } from "@/components/flow/node-prompt";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toFlowStatus } from "@/lib/flow-status";
+import { optionLabel } from "@/lib/node-kinds";
 import { useFlowStore } from "@/lib/store";
 import type { FlowNode, NodeStatus } from "@/lib/types";
 import { BaseNode } from "./base-node";
 import { WirePreview } from "./wire-preview";
 
 type Props = NodeProps<Extract<FlowNode, { type: "tts" }>>;
-
-const VOICES = ["Rachel", "Adam", "Alice", "Bella", "Charlie", "Domi"];
 
 // [HAND] Nick decides: when should the prompt collapse to its one-line summary?
 // Kit guidance (the Flora pattern): collapse once an output exists, and clicking
@@ -51,7 +43,7 @@ export function TTSNode({ id, data, selected }: Props) {
     <BaseNode
       id={id}
       title="Text to Speech"
-      modelLabel="Eleven Multilingual v2"
+      modelLabel={optionLabel("tts", "model", data.model)}
       status={data.status}
       error={data.error}
       selected={selected}
@@ -63,19 +55,6 @@ export function TTSNode({ id, data, selected }: Props) {
       <WirePreview id={id} />
 
       <MediaSlot kind="audio" status={slotStatus} src={data.outputUrl} className="nodrag mb-2" />
-
-      <Select value={data.voice} onValueChange={(voice) => updateNodeData(id, { voice })}>
-        <SelectTrigger size="sm" aria-label="Voice" className="nodrag mb-2 w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {VOICES.map((v) => (
-            <SelectItem key={v} value={v}>
-              {v}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
 
       <NodePrompt
         value={data.prompt}

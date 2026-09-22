@@ -16,6 +16,7 @@ import { TTSNode } from "@/components/nodes/tts-node";
 import { CompositionNode } from "@/components/nodes/composition-node";
 import { ClusterNode } from "@/components/nodes/cluster-node";
 import { NodeToolbar } from "@/components/node-toolbar";
+import { Inspector } from "@/components/inspector";
 
 const nodeTypes: NodeTypes = {
   image: ImageNode,
@@ -54,6 +55,7 @@ function FlowCanvasInner() {
       </ReactFlow>
       <NodeToolbar />
       <Header />
+      <Inspector />
     </div>
   );
 }

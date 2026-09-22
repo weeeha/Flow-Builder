@@ -4,6 +4,7 @@ import {
   PALETTE_KINDS,
   inPalette,
   initialData,
+  optionLabel,
   outputsOf,
   portTop,
   type PortSpec,
@@ -125,6 +126,23 @@ describe("fields", () => {
   it("gives composition and cluster nothing to configure yet", () => {
     expect(NODE_KINDS.composition.fields).toEqual({});
     expect(Object.keys(NODE_KINDS.cluster.fields)).toEqual(["prompt"]);
+  });
+});
+
+describe("optionLabel", () => {
+  it("reads a value's label off the field, so a card header can show it", () => {
+    expect(optionLabel("tts", "model", "eleven_multilingual_v2")).toBe("Eleven Multilingual v2");
+    expect(optionLabel("tts", "model", "eleven_turbo_v2_5")).toBe("Eleven Turbo v2.5");
+    expect(optionLabel("image", "model", "nano-banana")).toBe("Nano Banana");
+  });
+
+  it("falls back to the raw value when the field does not offer it", () => {
+    expect(optionLabel("image", "model", "sdxl")).toBe("sdxl");
+  });
+
+  it("falls back for a key that is not a select", () => {
+    expect(optionLabel("image", "prompt", "a lighthouse")).toBe("a lighthouse");
+    expect(optionLabel("composition", "model", "none")).toBe("none");
   });
 });
 

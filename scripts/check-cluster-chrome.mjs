@@ -173,8 +173,15 @@ try {
 
   const before = await groupTexts();
   await click('button[aria-label="Re-roll era"]');
-  await sleep(1500);
-  const after = await groupTexts();
+  // Poll rather than sleep a fixed time: the first request to /api/generate/cluster
+  // on a fresh dev server waits for Next to compile the route, which outlasts any
+  // guess and reads as "the re-roll did nothing".
+  let after = before;
+  for (let i = 0; i < 40; i++) {
+    await sleep(250);
+    after = await groupTexts();
+    if (JSON.stringify(after[1]) !== JSON.stringify(before[1])) break;
+  }
   const same = (i) => JSON.stringify(before[i]) === JSON.stringify(after[i]);
   check("re-roll era changes only era", !same(1) && same(0) && same(2) && same(3));
   check("the two pins survive the re-roll", (await count('button[aria-pressed="true"]')) === 2);

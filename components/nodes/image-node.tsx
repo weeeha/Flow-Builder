@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ImageIcon } from "lucide-react";
 import { TypedHandle } from "@/components/handles/typed-handle";
 import { useFlowStore } from "@/lib/store";
+import { optionLabel } from "@/lib/node-kinds";
 import type { FlowNode, ImageNodeData } from "@/lib/types";
 import { BaseNode } from "./base-node";
 import { WirePreview } from "./wire-preview";
@@ -18,7 +19,7 @@ export function ImageNode({ id, data, selected }: Props) {
     <BaseNode
       id={id}
       title="Image"
-      modelLabel={data.model}
+      modelLabel={optionLabel("image", "model", data.model)}
       status={data.status}
       error={data.error}
       selected={selected}

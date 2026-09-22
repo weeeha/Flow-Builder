@@ -211,6 +211,18 @@ export function initialData<K extends NodeKind>(kind: K): DataOf<K> {
   return { ...structuredClone(NODE_KINDS[kind].initial), status: "idle" } as DataOf<K>;
 }
 
+/**
+ * The label a select field gives one of its values, for read-only display such
+ * as a card header. Falls back to the value itself when the field does not
+ * offer it, or is not a select.
+ */
+export function optionLabel(kind: NodeKind, key: string, value: string | number): string {
+  const fields = NODE_KINDS[kind].fields as Record<string, FieldSpec | undefined>;
+  const spec = fields[key];
+  if (spec?.control !== "select") return String(value);
+  return spec.options.find((option) => option.value === value)?.label ?? String(value);
+}
+
 /** A kind's output ports for one instance, resolving the function form. */
 export function outputsOf<K extends NodeKind>(kind: K, data: DataOf<K>): readonly PortSpec[] {
   // TypeScript cannot correlate `kind` with `data` through a record lookup.
