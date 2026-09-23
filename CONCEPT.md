@@ -65,12 +65,18 @@ Nick's guess that the flow level is the simpler one matches the code.
 
 - The flow level is React Flow plus a 109-line executor (`lib/executor.ts` on `main`: gather inputs, topological sort, run in order). Adding the cluster kind changed `components/flow-canvas.tsx` by 2 lines.
 - The kind level takes the work. The cluster kind on `concept-cluster` added `cluster-node.tsx` (261 lines), `lib/cluster.ts` (138), a schema (22), a fixture (78) and 292 lines of tests.
-- Registering a kind touches 5 files with no single source of truth (commit `8958610`): `lib/types.ts`, `lib/store.ts` (`defaultData`), `components/node-toolbar.tsx`, `components/flow-canvas.tsx` (`nodeTypes`) and the node component. `lib/executor.ts` gets an `if (node.type === ...)` branch once the kind runs.
-- Ports are declared only in JSX inside each node component. Build 11's spec (`Runaway/builds/11-clip-to-graph/spec.md`) already plans a second copy, `NODE_HANDLES`, because its graph validator and its LLM prompt both need ports as data.
+- Registering a kind touches 5 files with no single source of truth (commit `b6f09a5`): `lib/types.ts`, `lib/store.ts` (`defaultData`), `components/node-toolbar.tsx`, `components/flow-canvas.tsx` (`nodeTypes`) and the node component. `lib/executor.ts` gets an `if (node.type === ...)` branch once the kind runs.
+- Ports are declared only in JSX inside each node component. Build 11's spec (`docs/builds/11-clip-to-graph/spec.md`) needs the same data as `NODE_HANDLES`, because its graph validator and its LLM prompt both need ports as data.
 - Two params have no control at all. The image `model` has 3 options in its type and the tts `model` has 2, and neither card renders a picker. The tts header label is hard-coded.
 - The pattern exists once already. `lib/models.ts` on `runway-node` holds `VIDEO_MODELS`, and its comment reads "Add a model here and both the UI and the dispatcher pick it up." The node registry is the same move one level up.
 
 ## The contract (recommended for now)
+
+**Slice 1 built 2026-09-21** on branch `node-registry` (72068df, off the merged design-system line): `lib/node-kinds.ts` holds `NODE_KINDS` exactly as below, and `lib/store.ts` and `components/node-toolbar.tsx` derive from it. Four things the table grew on contact with the code:
+- `initialData(kind)` deep-copies through `structuredClone` and adds `status`, so two nodes never share the cluster's `groups` array.
+- `inPalette(spec)` takes a spec rather than reading the table, so build 11's `palette: false` is testable before a kind uses it. It requires `label` because TypeScript's weak-type rule rejects an all-optional parameter.
+- `portTop(ports, i)` holds the stacking rule (one port centred, several at 24 + 32i, `top` overriding), ready for `BaseNode` in slice 3.
+- `InitialData<K>` strips `BaseNodeData`'s index signature before `Omit`, or the required params would go unchecked.
 
 Three tables keyed by `NodeKind`. Each closes with `satisfies { [K in NodeKind]: ... }`, so the compiler reports a kind that lacks an entry.
 
@@ -96,6 +102,7 @@ export type FieldSpec = { label: string; placement: "card" | "inspector"; group?
 export interface KindSpec<K extends NodeKind> {
   label: string;
   group: "generate" | "ideate" | "assemble";
+  palette?: boolean;                            // false keeps an app-created kind (reference) off the toolbar
   inputs: readonly PortSpec[];
   outputs: readonly PortSpec[] | ((data: DataOf<K>) => readonly PortSpec[]);
   fields: Partial<Record<KnownKeys<DataOf<K>>, FieldSpec>>;
@@ -122,6 +129,8 @@ Rules that keep the refactor safe:
 - Two TypeScript catches. `BaseNodeData` extends `Record<string, unknown>`, so `keyof` collapses to `string`; `KnownKeys` has to strip the index signature or field keys go unchecked. The executor's `RUNNERS[node.type](...)` call needs one cast, because TypeScript cannot correlate `node.type` with `node.data` through a record lookup.
 - zod is `^4.4.2` on the working line, so `z.toJSONSchema` is available. Derive a zod object from `fields` when build 11 or an MCP client needs param schemas. Keep the form driven by `fields`.
 
+**Slice 3 built 2026-09-23** on `registry-slice-3` (c9367e2, 0b422b8), now in PR #6: `RUNNERS` in `lib/runners.ts` (image, video and tts share `postRoute`; composition passes its first video and audio through; the cluster returns the function form of the patch), `NODE_VIEWS` in `components/nodes/registry.tsx` with `nodeTypes` derived from it, and `shellPorts(kind)` so `BaseNode` draws every input and static output. The executor's `applyPatch` re-reads the node and skips one deleted mid-run. `scripts/check-runall-chrome.mjs` confirms a graph saved before the refactor reloads with its edges and handle offsets intact.
+
 ## Card and inspector split (decision 2C)
 
 | Kind | Card keeps | Inspector gets | Today |
@@ -136,14 +145,21 @@ The card header keeps its read-only model label, so the model in use stays visib
 
 ## Inspector behaviour
 
+**Slice 2 built 2026-09-21** on branch `inspector` (629bf1b): `components/inspector.tsx` renders every field whose `placement` is `inspector`, in table order, for the one selected node. What the build added beyond the description below:
+- `lib/inspector.ts` holds the pure part: `inspectorFields(kind)`, `fieldValue(spec, raw)` (a select writes the option's own value, so `duration` stays the number 6), and `inspectorTarget` (decided 2026-09-23, below).
+- `optionLabel(kind, key, value)` in the kind table feeds the card headers, so the tts card stops hard-coding its model name and every header reads the same label the panel shows.
+- The video card keeps a read-only `4s` in its footer, so the duration stays visible once its select moves to the panel.
+- Icons lived in `components/nodes/icons.tsx` until slice 3 folded them into `NODE_VIEWS`.
+- The More/Less toggle is built but renders only when a field declares `group: "advanced"`. None does yet.
+
 - A right-hand `aside` floating over the canvas, about 340px wide (estimated from the screenshot). It is non-modal: no overlay, no focus trap, and the canvas stays interactive. Radix Dialog and Sheet are modal, so use a plain positioned element.
 - It shows when exactly one node is selected. Header: kind icon and label. Body: every `placement: "inspector"` field. Fields with `group: "advanced"` sit behind a More/Less toggle, as in the reference.
 - Controls come from `components/ui` (select, input, textarea). Every control has a visible label and a focus ring, and the panel follows the canvas in tab order.
-- Proposed [HAND] task for Nick, about 8 lines: `inspectorTarget(nodes, lastId)` decides what the panel shows with nothing selected, with several nodes selected, and after a deselect (close like the reference, or stay on the last node like Figma).
+- Decided by Nick 2026-09-23 (3A): the panel closes with nothing or several selected, like the reference. `inspectorTarget(nodes)` returns the one selected node or null; `lastId` was dropped.
 
 ## Related work
 
-A coded Flow Kit sits on branch `wave-2-flow-foundation` of `weeeha/Super-AI-Components` (local checkout `~/ClaudeCode Projects/AI Components`, path `apps/docs/registry/super-ai/flow/`): ai-node, typed-handle, typed-edge, port-chip, connection-hint, node-prompt, media-slot, model-bar, run-button, node-status, use-flow-runner, each with a test file. It supplies parts for a node card, which makes it the UI half of the kind level. The tables above are the data half. On 2026-09-20 another session was converting `tts-node.tsx` to kit pieces (media-slot, node-prompt, node-status, run-button) on `claude/design-system-component-reuse-321c19`.
+A coded Flow Kit sits on branch `wave-2-flow-foundation` of `weeeha/Super-AI-Components` (local checkout `~/ClaudeCode Projects/AI Components`, path `apps/docs/registry/super-ai/flow/`): ai-node, typed-handle, typed-edge, port-chip, connection-hint, node-prompt, media-slot, model-bar, run-button, node-status, use-flow-runner, each with a test file. It supplies parts for a node card, which makes it the UI half of the kind level. The tables above are the data half. The tts card was converted to kit pieces (media-slot, node-prompt) on 2026-09-20, commit `296bafe` on `claude/design-system-component-reuse-321c19`.
 
 ## Out of scope for now
 
