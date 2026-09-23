@@ -87,7 +87,8 @@ export const RUNNERS = {
   video: postRoute<"video">("/api/generate/video"),
   tts: postRoute<"tts">("/api/generate/speech"),
 
-  composition: async ({ inputs }) => urlPatch(inputs.videos[0] ?? ""),
+  // audioUrl is always written, so unwiring the audio clears the track on the next run.
+  composition: async ({ inputs }) => ({ ...urlPatch(inputs.videos[0] ?? ""), audioUrl: inputs.audios[0] }),
 
   // Nothing to generate: the clip itself goes out on the video handle, for a
   // wire drawn from it by hand.

@@ -137,6 +137,8 @@ try {
   const comp = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "composition-a").data`);
   const video = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "video-a").data`);
   check("composition picks up the video's output", Boolean(comp.videoUrl) && comp.videoUrl === video.outputUrl, comp.videoUrl ?? "none");
+  const tts = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "tts-a").data`);
+  check("composition picks up the tts's audio", Boolean(comp.audioUrl) && comp.audioUrl === tts.outputUrl, comp.audioUrl ?? "none");
 
   // Call click() on the control itself: Next's dev badge sits on top of Fit View,
   // so a mouse event at those coordinates opens the dev overlay instead.

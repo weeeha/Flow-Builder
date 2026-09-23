@@ -55,14 +55,23 @@ describe("RUNNERS", () => {
     ).rejects.toThrow("502 fal is down");
   });
 
-  it("composition passes its first wired video through without a request", async () => {
-    const inputs = { ...noInputs(), videos: ["https://example.test/a.mp4", "https://example.test/b.mp4"] };
+  it("composition passes its first wired video and audio through without a request", async () => {
+    const inputs = {
+      ...noInputs(),
+      videos: ["https://example.test/a.mp4", "https://example.test/b.mp4"],
+      audios: ["https://example.test/voice.mp3"],
+    };
     const patch = await RUNNERS.composition({ data: initialData("composition"), inputs });
-    expect(patch).toEqual({ outputUrl: "https://example.test/a.mp4", videoUrl: "https://example.test/a.mp4" });
+    expect(patch).toEqual({
+      outputUrl: "https://example.test/a.mp4",
+      videoUrl: "https://example.test/a.mp4",
+      audioUrl: "https://example.test/voice.mp3",
+    });
     expect(urlRoute).not.toHaveBeenCalled();
 
     const empty = await RUNNERS.composition({ data: initialData("composition"), inputs: noInputs() });
-    expect(empty).toEqual({ outputUrl: "", videoUrl: "" });
+    expect(empty).toEqual({ outputUrl: "", videoUrl: "", audioUrl: undefined });
+    expect(empty).toHaveProperty("audioUrl", undefined);
   });
 
   it("reference hands its clip to whatever is wired to it, without a request", async () => {
