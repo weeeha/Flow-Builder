@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NODE_VIEWS } from "@/components/nodes/registry";
 import {
   Select,
@@ -29,16 +29,9 @@ const WIDTH = 340;
 export function Inspector() {
   const nodes = useFlowStore((s) => s.nodes);
   const updateNodeData = useFlowStore((s) => s.updateNodeData);
-  const [lastId, setLastId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const target = inspectorTarget(nodes, lastId);
-  const targetId = target?.id ?? null;
-
-  // Remembered for inspectorTarget's [HAND] decision about an empty selection.
-  useEffect(() => {
-    if (targetId) setLastId(targetId);
-  }, [targetId]);
+  const target = inspectorTarget(nodes);
 
   if (!target) return null;
 

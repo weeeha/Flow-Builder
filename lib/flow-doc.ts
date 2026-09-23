@@ -70,18 +70,26 @@ export interface GraphError {
 }
 
 /**
- * [HAND] Nick's, plan task 3: whether one edge fits the type contract. The cases
- * it has to meet are in lib/__tests__/flow-doc.test.ts under `edgeIsValid`.
- * The open question is an unknown port on a known type: error or warning.
- *
- * Provisional until then: every edge passes, so validateGraph's other checks
- * still run. Nothing in the thin slice calls validateGraph on a live graph yet;
- * the repair loop (task 9) is the first caller that depends on this.
+ * Whether one edge fits the type contract: both ends exist and are model kinds,
+ * each handle id names its own end of the edge, the source offers the type as an
+ * output and the target takes it as an input. Plan task 3, rule chosen by Nick
+ * on 2026-09-23: a named port is invalid, since none of the four model kinds has
+ * one, so `video-1:image:0` goes back to the model in the repair message rather
+ * than reaching the canvas as a wire to a handle that does not exist.
  */
 export function edgeIsValid(edge: FlowDocEdge, nodes: FlowDocNode[]): boolean {
-  void edge;
-  void nodes;
-  return true; // TODO(HAND)
+  const source = nodes.find((n) => n.id === edge.source);
+  const target = nodes.find((n) => n.id === edge.target);
+  const from = parseHandleId(edge.sourceHandle);
+  const to = parseHandleId(edge.targetHandle);
+  if (!source || !target || !from || !to) return false;
+  if (!isModelKind(source.kind) || !isModelKind(target.kind)) return false;
+  if (from.nodeId !== source.id || to.nodeId !== target.id || from.port || to.port) return false;
+  return (
+    from.type === to.type &&
+    NODE_HANDLES[source.kind].out.includes(from.type) &&
+    NODE_HANDLES[target.kind].in.includes(to.type)
+  );
 }
 
 /** Longest-path depth per node, from Kahn's algorithm. Nodes in a cycle stay at 0. */

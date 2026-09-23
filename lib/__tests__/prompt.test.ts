@@ -18,11 +18,10 @@ describe("effectivePrompt", () => {
     expect(effectivePrompt(["neon alley at night"], "")).toBe("neon alley at night");
   });
 
-  // [HAND] Plan task 12 is Nick's. When a wired text AND the node's own prompt are
-  // both present, Nick decides whether the wire prefixes, suffixes or replaces the
-  // own prompt, and what joins them. lib/prompt.ts ships a provisional default for
-  // this case. Do not assert that default here: write this test after the decision.
-  it.todo(
-    'effectivePrompt(["neon alley at night"], "in the style of a watercolor") -> Nick decides: prefix, suffix or replace'
-  );
+  // Plan task 12, Nick's rule (2A): own prompt first, then the wire, one space between.
+  it("puts the own prompt first and the wired text after it when both are present", () => {
+    expect(effectivePrompt(["neon alley at night"], "in the style of a watercolor")).toBe(
+      "in the style of a watercolor neon alley at night"
+    );
+  });
 });

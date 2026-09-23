@@ -60,21 +60,21 @@ describe("fieldValue", () => {
 describe("inspectorTarget", () => {
   it("shows the node when exactly one is selected", () => {
     const one = node("image-1", true);
-    expect(inspectorTarget([one, node("image-2", false)], null)).toBe(one);
+    expect(inspectorTarget([one, node("image-2", false)])).toBe(one);
   });
 
-  // Provisional until the [HAND] task below. Both cases close the panel today.
+  // Nick's call, 2026-09-23: close like the reference rather than stay like Figma.
   it("shows nothing when the selection is empty", () => {
-    expect(inspectorTarget([node("image-1", false)], null)).toBeNull();
+    expect(inspectorTarget([node("image-1", false)])).toBeNull();
   });
 
   it("shows nothing when several nodes are selected", () => {
-    expect(inspectorTarget([node("image-1", true), node("image-2", true)], null)).toBeNull();
+    expect(inspectorTarget([node("image-1", true), node("image-2", true)])).toBeNull();
   });
 
-  // [HAND] Nick's, per CONCEPT.md. What should the panel do with no selection,
-  // with several selected, and right after a deselect: close like the reference,
-  // or stay on the last node like Figma? `lastId` carries the last single
-  // selection so either answer is reachable.
-  it.todo("[HAND] keeps or drops the last node once the selection goes away");
+  it("closes after a deselect, even though a node was just showing", () => {
+    const one = node("image-1", true);
+    expect(inspectorTarget([one])).toBe(one);
+    expect(inspectorTarget([{ ...one, selected: false }])).toBeNull();
+  });
 });

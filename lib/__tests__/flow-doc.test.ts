@@ -167,14 +167,21 @@ describe("validateGraph", () => {
     expect(messages(text).some((m) => m.includes("text input"))).toBe(false);
   });
 
+  it("rejects a handle mismatch", () => {
+    const g = chain();
+    g.nodes.push(node("tts-1", "tts"));
+    g.edges.push({ source: "tts-1", sourceHandle: "tts-1:audio", target: "video-1", targetHandle: "video-1:text" });
+    expect(messages(g)).toContain("The edge tts-1:audio → video-1:text joins handles that do not fit.");
+  });
+
   it("rejects a cycle", () => {
     const g = doc([node("a", "video"), node("b", "video")], [edge("a", "video", "b", "image"), edge("b", "video", "a", "image")]);
     expect(messages(g)).toContain("The edges form a cycle through a, b.");
   });
 });
 
-// [HAND] Nick's, plan task 3. Remove `.skip` once edgeIsValid is written.
-describe.skip("edgeIsValid", () => {
+// Plan task 3. Nick's rule, 2026-09-23: a named port on a kind without named ports is invalid (1A).
+describe("edgeIsValid", () => {
   const graph = [
     node("image-1", "image"),
     node("video-1", "video"),
@@ -204,5 +211,19 @@ describe.skip("edgeIsValid", () => {
     expect(edgeIsValid(edge("composition-1", "video", "video-1", "image"), graph)).toBe(false);
   });
 
-  it.todo('your call: "video-1:image:0", a named port on a kind with no named ports');
+  it('rejects "video-1:image:0", a named port on a kind with no named ports', () => {
+    expect(
+      edgeIsValid({ source: "image-1", sourceHandle: "image-1:image", target: "video-1", targetHandle: "video-1:image:0" }, graph)
+    ).toBe(false);
+  });
+
+  it("rejects a handle id that names a different node than the edge's own end", () => {
+    expect(
+      edgeIsValid({ source: "image-1", sourceHandle: "image-1:image", target: "video-1", targetHandle: "tts-1:text" }, graph)
+    ).toBe(false);
+  });
+
+  it("rejects an input a kind does not have, even when the types match", () => {
+    expect(edgeIsValid(edge("video-1", "video", "image-1", "video"), graph)).toBe(false);
+  });
 });

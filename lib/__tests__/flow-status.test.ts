@@ -21,6 +21,6 @@ describe("toFlowStatus", () => {
   // runAll in lib/executor.ts runs nodes one at a time, so today "running" always
   // means this node is generating now — there is no waiting/queued state yet.
   it.todo(
-    "queued: should Run all mark waiting nodes as queued? Needs an executor change, owner's call"
+    "queued: not for now (Nick, 2026-09-23); revisit if Run all ever runs nodes in parallel"
   );
 });

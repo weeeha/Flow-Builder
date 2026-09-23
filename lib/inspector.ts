@@ -31,19 +31,11 @@ export function fieldValue(spec: FieldSpec, raw: string): string | number | unde
 }
 
 /**
- * Which node the inspector is looking at.
- *
- * [HAND] Nick's, per CONCEPT.md. Exactly one node selected is settled: show it.
- * The rest is his call, and `lastId` (the last single selection) is here so
- * either answer is reachable:
- *   - nothing selected: close like the reference, or stay on the last node like Figma?
- *   - several selected: close, or show what they have in common?
- *   - right after a deselect: does it differ from never having had a selection?
- * Returning null for both keeps today's behaviour, which is to close.
+ * Which node the inspector is looking at: the one selected node, or none. With
+ * nothing or several selected the panel closes, like the reference; Nick chose
+ * this over Figma's stay-on-the-last-node on 2026-09-23.
  */
-export function inspectorTarget(nodes: FlowNode[], lastId: string | null): FlowNode | null {
+export function inspectorTarget(nodes: FlowNode[]): FlowNode | null {
   const selected = nodes.filter((node) => node.selected);
-  if (selected.length === 1) return selected[0];
-  void lastId; // TODO(HAND)
-  return null;
+  return selected.length === 1 ? selected[0] : null;
 }
