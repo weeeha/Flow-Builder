@@ -7,24 +7,11 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  type NodeTypes,
 } from "@xyflow/react";
 import { useFlowStore } from "@/lib/store";
-import { ImageNode } from "@/components/nodes/image-node";
-import { VideoNode } from "@/components/nodes/video-node";
-import { TTSNode } from "@/components/nodes/tts-node";
-import { CompositionNode } from "@/components/nodes/composition-node";
-import { ClusterNode } from "@/components/nodes/cluster-node";
+import { nodeTypes } from "@/components/nodes/registry";
 import { NodeToolbar } from "@/components/node-toolbar";
 import { Inspector } from "@/components/inspector";
-
-const nodeTypes: NodeTypes = {
-  image: ImageNode,
-  video: VideoNode,
-  tts: TTSNode,
-  composition: CompositionNode,
-  cluster: ClusterNode,
-};
 
 function FlowCanvasInner() {
   const nodes = useFlowStore((s) => s.nodes);

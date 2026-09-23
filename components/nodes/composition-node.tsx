@@ -1,8 +1,7 @@
 "use client";
 
-import { Position, type NodeProps } from "@xyflow/react";
+import type { NodeProps } from "@xyflow/react";
 import { Film } from "lucide-react";
-import { TypedHandle } from "@/components/handles/typed-handle";
 import type { FlowNode } from "@/lib/types";
 import { BaseNode } from "./base-node";
 
@@ -12,14 +11,12 @@ export function CompositionNode({ id, data, selected }: Props) {
   return (
     <BaseNode
       id={id}
-      title="Composition"
+      kind="composition"
       status={data.status}
       error={data.error}
       selected={selected}
       width={420}
     >
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="video" style={{ top: 24 }} />
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="audio" style={{ top: 56 }} />
 
       <div className="mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
         {data.videoUrl ? (

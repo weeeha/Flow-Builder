@@ -7,6 +7,7 @@ import {
   optionLabel,
   outputsOf,
   portTop,
+  shellPorts,
   type PortSpec,
 } from "../node-kinds";
 import { VIDEO_MODELS } from "../models";
@@ -155,5 +156,40 @@ describe("PALETTE_KINDS", () => {
     expect(inPalette({ label: "Reference", palette: false })).toBe(false);
     expect(inPalette({ label: "Reference", palette: true })).toBe(true);
     expect(inPalette({ label: "Reference" })).toBe(true);
+  });
+});
+
+describe("shellPorts", () => {
+  // Today's handle positions, copied from the cards before BaseNode took them over.
+  // Saved edges attach by handle id, so type and port must come out unchanged.
+  it("gives image and video a text and an image input stacked at 24 and 56, and one centred output", () => {
+    for (const kind of ["image", "video"] as const) {
+      const out = kind === "image" ? "image" : "video";
+      expect(shellPorts(kind)).toEqual([
+        { side: "target", type: "text", port: undefined, top: 24 },
+        { side: "target", type: "image", port: undefined, top: 56 },
+        { side: "source", type: out, port: undefined, top: undefined },
+      ]);
+    }
+  });
+
+  it("centres tts's single input and output", () => {
+    expect(shellPorts("tts")).toEqual([
+      { side: "target", type: "text", port: undefined, top: undefined },
+      { side: "source", type: "audio", port: undefined, top: undefined },
+    ]);
+  });
+
+  it("gives composition two stacked inputs and no output", () => {
+    expect(shellPorts("composition")).toEqual([
+      { side: "target", type: "video", port: undefined, top: 24 },
+      { side: "target", type: "audio", port: undefined, top: 56 },
+    ]);
+  });
+
+  it("leaves the cluster's per-pin outputs to its card and keeps its input at 24", () => {
+    expect(shellPorts("cluster")).toEqual([
+      { side: "target", type: "text", port: undefined, top: 24 },
+    ]);
   });
 });

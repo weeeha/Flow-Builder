@@ -1,9 +1,8 @@
 "use client";
 
-import { Position, type NodeProps } from "@xyflow/react";
+import type { NodeProps } from "@xyflow/react";
 import Image from "next/image";
 import { ImageIcon } from "lucide-react";
-import { TypedHandle } from "@/components/handles/typed-handle";
 import { useFlowStore } from "@/lib/store";
 import { optionLabel } from "@/lib/node-kinds";
 import type { FlowNode, ImageNodeData } from "@/lib/types";
@@ -18,15 +17,12 @@ export function ImageNode({ id, data, selected }: Props) {
   return (
     <BaseNode
       id={id}
-      title="Image"
+      kind="image"
       modelLabel={optionLabel("image", "model", data.model)}
       status={data.status}
       error={data.error}
       selected={selected}
     >
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="text" style={{ top: 24 }} />
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="image" style={{ top: 56 }} />
-      <TypedHandle id={id} type="source" position={Position.Right} handleType="image" />
 
       <WirePreview id={id} />
 

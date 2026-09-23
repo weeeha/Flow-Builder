@@ -94,7 +94,7 @@ export function ClusterNode({ id, data, selected }: Props) {
   return (
     <BaseNode
       id={id}
-      title="Concept Cluster"
+      kind="cluster"
       modelLabel={data.stub ? `${model} · stub` : model}
       status={data.status}
       error={data.error}
@@ -123,7 +123,6 @@ export function ClusterNode({ id, data, selected }: Props) {
         )
       }
     >
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="text" style={{ top: 24 }} />
 
       <WirePreview id={id} />
 

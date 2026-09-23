@@ -241,3 +241,25 @@ export function portTop(ports: readonly PortSpec[], index: number): number | und
   if (spec?.top !== undefined) return spec.top;
   return ports.length > 1 ? 24 + 32 * index : undefined;
 }
+
+export interface ShellPort {
+  side: "target" | "source";
+  type: HandleType;
+  port?: string;
+  top?: number;
+}
+
+/**
+ * The handles `BaseNode` draws for a kind: every input, and the outputs when
+ * they are static. A kind whose outputs depend on its data draws those itself,
+ * beside whatever they belong to, as the cluster does beside each pin.
+ */
+export function shellPorts(kind: NodeKind): ShellPort[] {
+  const { inputs, outputs } = NODE_KINDS[kind] as KindSpec<NodeKind>;
+  const place = (side: ShellPort["side"], ports: readonly PortSpec[]) =>
+    ports.map((spec, i) => ({ side, type: spec.type, port: spec.port, top: portTop(ports, i) }));
+  return [
+    ...place("target", inputs),
+    ...(typeof outputs === "function" ? [] : place("source", outputs)),
+  ];
+}

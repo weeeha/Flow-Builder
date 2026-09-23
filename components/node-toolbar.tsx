@@ -4,7 +4,7 @@ import { useReactFlow } from "@xyflow/react";
 import { Play } from "lucide-react";
 import { useFlowStore } from "@/lib/store";
 import { runAll } from "@/lib/executor";
-import { NODE_ICONS } from "@/components/nodes/icons";
+import { NODE_VIEWS } from "@/components/nodes/registry";
 import { NODE_KINDS, PALETTE_KINDS } from "@/lib/node-kinds";
 import type { NodeKind } from "@/lib/types";
 
@@ -33,7 +33,7 @@ export function NodeToolbar() {
     <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center">
       <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-lg">
         {PALETTE_KINDS.map((kind) => {
-          const Icon = NODE_ICONS[kind];
+          const Icon = NODE_VIEWS[kind].icon;
           return (
             <button
               key={kind}

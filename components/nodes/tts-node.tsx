@@ -1,8 +1,7 @@
 "use client";
 
-import { Position, type NodeProps } from "@xyflow/react";
+import type { NodeProps } from "@xyflow/react";
 import { useState } from "react";
-import { TypedHandle } from "@/components/handles/typed-handle";
 import { MediaSlot } from "@/components/flow/media-slot";
 import { NodePrompt } from "@/components/flow/node-prompt";
 import { toFlowStatus } from "@/lib/flow-status";
@@ -42,15 +41,13 @@ export function TTSNode({ id, data, selected }: Props) {
   return (
     <BaseNode
       id={id}
-      title="Text to Speech"
+      kind="tts"
       modelLabel={optionLabel("tts", "model", data.model)}
       status={data.status}
       error={data.error}
       selected={selected}
       width={320}
     >
-      <TypedHandle id={id} type="target" position={Position.Left} handleType="text" />
-      <TypedHandle id={id} type="source" position={Position.Right} handleType="audio" />
 
       <WirePreview id={id} />
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NODE_ICONS } from "@/components/nodes/icons";
+import { NODE_VIEWS } from "@/components/nodes/registry";
 import {
   Select,
   SelectContent,
@@ -46,7 +46,7 @@ export function Inspector() {
   const fields = inspectorFields(target.type);
   const main = fields.filter((field) => field.spec.group !== "advanced");
   const advanced = fields.filter((field) => field.spec.group === "advanced");
-  const Icon = NODE_ICONS[target.type];
+  const Icon = NODE_VIEWS[target.type].icon;
 
   return (
     <aside
