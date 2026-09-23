@@ -135,6 +135,15 @@ try {
       return real(url, init);
     };
   })()`);
+  // Timestamp every card as it mounts, to see the staggered reveal.
+  await evaluate(`(() => {
+    window.__arrivals = [];
+    new MutationObserver((records) => {
+      for (const r of records) for (const n of r.addedNodes) {
+        if (n.classList?.contains("react-flow__node")) window.__arrivals.push({ type: [...n.classList].find((c) => c.startsWith("react-flow__node-")).slice(17), at: performance.now() });
+      }
+    }).observe(document.querySelector(".react-flow__nodes"), { childList: true });
+  })()`);
   await fire("dragover");
   await sleep(150);
   const overlay = await evaluate("[...document.querySelectorAll('span')].some(s => s.textContent === 'Drop to read the clip')");
@@ -164,6 +173,11 @@ try {
   console.log(`INFO Chrome's audio guess for a clip with a tone: ${JSON.stringify(ref?.data.hasAudio)}`);
   check("it carries the stub's summary and path", ref?.data.summary === "1 shot, push-in, dusk" && ref?.data.path === "first pass", `${ref?.data.summary} · ${ref?.data.path}`);
 
+  const arrivals = (await evaluate("window.__arrivals")).filter((a) => a.type !== "reference");
+  const gaps = arrivals.slice(1).map((a, i) => Math.round(a.at - arrivals[i].at));
+  check("the graph lands one card at a time, about 150ms apart", arrivals.length === 4 && gaps.every((g) => g >= 110 && g < 400),
+    `${arrivals.map((a) => a.type).join(" → ")} · gaps ${gaps.join(", ")}ms`);
+
   const state = await stored();
   const kinds = state.nodes.map((n) => n.type).sort().join(",");
   check("the stub graph lands beside it", kinds === "composition,image,image,reference,tts,video", kinds);
@@ -187,6 +201,32 @@ try {
   check("no two cards overlap", overlaps.length === 0, overlaps.join(", "));
   const storedKB = await evaluate(`Math.round(localStorage.getItem("flow-builder-state").length / 1024)`);
   console.log(`INFO persisted graph size with one clip: ${storedKB}KB`);
+
+  // Reduced motion: a second clip's graph lands all at once.
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await evaluate("window.__arrivals = []");
+  await fire("drop");
+  for (let i = 0; i < 60; i++) {
+    await sleep(250);
+    const refs = (await stored()).nodes.filter((n) => n.type === "reference");
+    if (refs.length === 2 && refs.every((r) => r.data.status === "done")) break;
+  }
+  const second = (await evaluate("window.__arrivals")).filter((a) => a.type !== "reference");
+  const spread = second.length ? Math.round(second.at(-1).at - second[0].at) : -1;
+  check("under reduced motion the second graph lands at once", second.length === 4 && spread < 50, `${second.length} cards within ${spread}ms`);
+  await send("Emulation.setEmulatedMedia", { features: [] });
+  await evaluate("document.querySelector('.react-flow__controls-fitview').click()");
+  await sleep(600);
+  const overlaps2 = await evaluate(`(() => {
+    const boxes = [...document.querySelectorAll('.react-flow__node')].map(n => ({ id: n.dataset.id, r: n.getBoundingClientRect() }));
+    const hit = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].r, b = boxes[j].r;
+      if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) hit.push(boxes[i].id + "/" + boxes[j].id);
+    }
+    return hit;
+  })()`);
+  check("a second drop in the same spot still overlaps nothing", overlaps2.length === 0, overlaps2.join(", "));
 
   const found = await evaluate("(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Run all'); b?.click(); return Boolean(b); })()");
   let statuses = {};

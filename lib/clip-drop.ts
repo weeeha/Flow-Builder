@@ -7,8 +7,8 @@ import { pickThumbnails, sampleFrames, type SampledClip } from "./frames";
 
 /** Frames kept on the reference node for its strip. */
 const KEPT_FRAMES = 3;
-import { useFlowStore } from "./store";
-import type { FlowNode } from "./types";
+import { buildGraph, useFlowStore } from "./store";
+import type { FlowEdge, FlowNode } from "./types";
 
 /** Sizes to plan around before React Flow has measured a card. */
 const REFERENCE_SIZE = { width: 320, height: 260 };
@@ -22,6 +22,36 @@ function boxOf(node: FlowNode): Box {
     width: node.measured?.width ?? UNMEASURED_SIZE.width,
     height: node.measured?.height ?? UNMEASURED_SIZE.height,
   };
+}
+
+const REVEAL_MS = 150;
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Add a built graph one node at a time, left to right (columns are topological
+ * depth, so every input lands before what it feeds), each edge with the node
+ * that completes it. All at once under reduced motion or with no delay.
+ */
+async function reveal(nodes: FlowNode[], edges: FlowEdge[], stepMs: number) {
+  const { addGraph } = useFlowStore.getState();
+  if (stepMs <= 0) {
+    addGraph(nodes, edges);
+    return;
+  }
+  const ordered = [...nodes].sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
+  const landed = new Set<string>();
+  for (const [i, node] of ordered.entries()) {
+    if (i > 0) await wait(stepMs);
+    landed.add(node.id);
+    const completed = edges.filter(
+      (e) => (e.source === node.id || e.target === node.id) && landed.has(e.source) && landed.has(e.target)
+    );
+    addGraph([node], completed);
+  }
 }
 
 /** The area a laid-out graph covers, from its origin. */
@@ -40,22 +70,30 @@ function footprint(doc: FlowDoc): { width: number; height: number } {
  * there (as the cluster's branches do), and nothing already there moves. Every
  * failure shows on the reference node.
  *
- * `sample` is injectable because jsdom cannot decode video; the page always
- * uses the real sampler.
+ * The options exist for tests: jsdom cannot decode video, and a test wants the
+ * reveal fast or its steps visible. The page passes none.
  */
 export async function readClip(
   file: File,
   at: { x: number; y: number },
-  deps: { sample: (file: File) => Promise<SampledClip> } = { sample: sampleFrames }
+  {
+    sample = sampleFrames,
+    revealMs = REVEAL_MS,
+    reducedMotion = prefersReducedMotion(),
+  }: {
+    sample?: (file: File) => Promise<SampledClip>;
+    revealMs?: number;
+    reducedMotion?: boolean;
+  } = {}
 ): Promise<string> {
-  const { addReference, updateNodeData, setNodeStatus, loadGraph } = useFlowStore.getState();
+  const { addReference, updateNodeData, setNodeStatus } = useFlowStore.getState();
   const clipUrl = URL.createObjectURL(file);
   const spot = clearSpot({ ...at, ...REFERENCE_SIZE }, useFlowStore.getState().nodes.map(boxOf));
   const id = addReference(spot, { clipUrl, outputUrl: clipUrl });
   setNodeStatus(id, "running");
 
   try {
-    const clip = await deps.sample(file);
+    const clip = await sample(file);
     updateNodeData(id, { ...clip, frames: pickThumbnails(clip.frames, KEPT_FRAMES) });
 
     const res = await fetch("/api/analyze/clip", {
@@ -70,7 +108,8 @@ export async function readClip(
 
     const others = useFlowStore.getState().nodes.filter((n) => n.id !== id).map(boxOf);
     const origin = clearSpot({ x: spot.x + COLUMN_GAP, y: spot.y, ...footprint(body.graph) }, others);
-    loadGraph(body.graph, { origin });
+    const { nodes, edges } = buildGraph(body.graph, origin);
+    await reveal(nodes, edges, reducedMotion ? 0 : revealMs);
     updateNodeData(id, { summary: body.breakdown.summary, path: body.path });
     setNodeStatus(id, "done");
   } catch (err) {

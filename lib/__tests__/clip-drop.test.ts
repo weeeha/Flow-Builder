@@ -38,7 +38,7 @@ afterEach(() => {
 describe("readClip", () => {
   it("drops a reference node at the point, then lands the analysed graph beside it", async () => {
     const existing = useFlowStore.getState().addNode("image", { x: -900, y: 0 });
-    await readClip(file, { x: 100, y: 200 }, { sample });
+    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
 
     const ref = reference();
     expect(ref.position).toEqual({ x: 100, y: 200 });
@@ -68,7 +68,7 @@ describe("readClip", () => {
 
   it("slides the reference card below a card it was dropped onto", async () => {
     const existing = useFlowStore.getState().addNode("image", { x: 90, y: 180 });
-    await readClip(file, { x: 100, y: 200 }, { sample });
+    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
     const ref = reference().position;
     expect(ref.x).toBe(100);
     // The image card has no measured size in jsdom, so its 360px fallback height counts.
@@ -78,7 +78,7 @@ describe("readClip", () => {
 
   it("slides the graph below a card sitting where it would land", async () => {
     const blocker = useFlowStore.getState().addNode("video", { x: 100 + 2 * COLUMN_GAP, y: 250 });
-    await readClip(file, { x: 100, y: 200 }, { sample });
+    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
     const graph = useFlowStore.getState().nodes.filter((n) => n.type !== "reference" && n.id !== blocker);
     const top = Math.min(...graph.map((n) => n.position.y));
     // The graph's first row starts below the blocker instead of at the drop's y.
@@ -88,7 +88,7 @@ describe("readClip", () => {
 
   it("shows a failed read on the reference node and lands no graph", async () => {
     sample.mockRejectedValueOnce(new Error("Could not read this file as a video"));
-    await readClip(file, { x: 0, y: 0 }, { sample });
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("Could not read this file as a video");
     expect(useFlowStore.getState().nodes).toHaveLength(1);
@@ -97,9 +97,50 @@ describe("readClip", () => {
 
   it("shows a failed analysis the same way", async () => {
     route.mockResolvedValueOnce(Response.json({ error: "No frames to read" }, { status: 400 }));
-    await readClip(file, { x: 0, y: 0 }, { sample });
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("No frames to read");
     expect(useFlowStore.getState().nodes).toHaveLength(1);
+  });
+});
+
+describe("readClip's reveal", () => {
+  /** Every distinct (nodes, edges) count the store passes through during a drop. */
+  const watch = () => {
+    const seen: { nodes: number; edges: number; dangling: number }[] = [];
+    const stop = useFlowStore.subscribe((state) => {
+      const ids = new Set(state.nodes.map((n) => n.id));
+      const dangling = state.edges.filter((e) => !ids.has(e.source) || !ids.has(e.target)).length;
+      const last = seen.at(-1);
+      if (!last || last.nodes !== state.nodes.length || last.edges !== state.edges.length) {
+        seen.push({ nodes: state.nodes.length, edges: state.edges.length, dangling });
+      }
+    });
+    return { seen, stop };
+  };
+
+  it("lands the graph one node per step, left to right, with each edge once both ends exist", async () => {
+    vi.useFakeTimers();
+    const { seen, stop } = watch();
+    const done = readClip(file, { x: 0, y: 0 }, { sample, revealMs: 150 });
+    await vi.runAllTimersAsync();
+    await done;
+    stop();
+    vi.useRealTimers();
+
+    const graphSteps = seen.filter((s) => s.nodes > 1).map((s) => s.nodes);
+    expect(graphSteps).toEqual([2, 3, 4, 5]);
+    expect(seen.every((s) => s.dangling === 0)).toBe(true);
+    expect(seen.at(-1)!.edges).toBe(fixture.graph.edges.length);
+    const graph = useFlowStore.getState().nodes.filter((n) => n.type !== "reference");
+    const xs = graph.map((n) => n.position.x);
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  it("lands everything at once when reduced motion is on", async () => {
+    const { seen, stop } = watch();
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 150, reducedMotion: true });
+    stop();
+    expect(seen.filter((s) => s.nodes > 1).map((s) => s.nodes)).toEqual([5]);
   });
 });
