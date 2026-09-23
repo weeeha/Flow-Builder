@@ -54,6 +54,9 @@ const center = async (sel) => {
 };
 async function click(sel) {
   const { x, y } = await center(sel);
+  // A mouse event outside the viewport hits nothing and fails silently later on.
+  const { w, h } = await evaluate("({ w: innerWidth, h: innerHeight })");
+  if (x < 0 || y < 0 || x > w || y > h) throw new Error(`${sel} is off screen at ${Math.round(x)},${Math.round(y)}`);
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
   await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
   await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
@@ -171,6 +174,14 @@ try {
   await sleep(300);
   check("a pinned handle connects by drag", (await count(".react-flow__edge")) === 2, `${await count(".react-flow__edge")} edges`);
 
+  // The canvas pans by transform, so scrollIntoView cannot bring a card control
+  // on screen; zoom out until it is, as for the video handle above.
+  for (let i = 0; i < 6; i++) {
+    const inView = await evaluate(`(() => { const r = document.querySelector('button[aria-label="Re-roll era"]').getBoundingClientRect(); return r.top > 0 && r.left > 0 && r.bottom < innerHeight && r.right < innerWidth; })()`);
+    if (inView) break;
+    await click(".react-flow__controls-zoomout");
+    await sleep(200);
+  }
   const before = await groupTexts();
   await click('button[aria-label="Re-roll era"]');
   // Poll rather than sleep a fixed time: the first request to /api/generate/cluster
@@ -183,7 +194,7 @@ try {
     if (JSON.stringify(after[1]) !== JSON.stringify(before[1])) break;
   }
   const same = (i) => JSON.stringify(before[i]) === JSON.stringify(after[i]);
-  check("re-roll era changes only era", !same(1) && same(0) && same(2) && same(3));
+  check("re-roll era changes only era", !same(1) && same(0) && same(2) && same(3), [0, 1, 2, 3].map((i) => `group ${i} ${same(i) ? "same" : "changed"}`).join(", "));
   check("the two pins survive the re-roll", (await count('button[aria-pressed="true"]')) === 2);
 
   const shot = await send("Page.captureScreenshot", { format: "png" });
