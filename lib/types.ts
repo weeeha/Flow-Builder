@@ -103,7 +103,11 @@ export interface ReferenceNodeData extends BaseNodeData {
   /** How many frames sampling has read so far; set while it runs. */
   sampled?: number;
   duration: number;
+  /** True when the clip ran past a minute and only its first minute was read. */
+  trimmed?: boolean;
   hasAudio: boolean | "unknown";
+  /** Set when the analysis failed after the clip was read: the card offers a skeleton. */
+  offerSkeleton?: boolean;
   /** "1 shot, push-in, dusk", written by the model. */
   summary?: string;
   path?: "first pass" | "repaired" | "fallback";

@@ -18,6 +18,12 @@ describe("referenceStatus", () => {
     expect(referenceStatus({ ...ref, status: "done", summary: "1 shot, push-in, dusk" })).toBe("1 shot, push-in, dusk");
   });
 
+  it("notes when only the first minute was read", () => {
+    expect(referenceStatus({ ...ref, status: "done", summary: "2 shots", duration: 130, trimmed: true })).toBe(
+      "2 shots · first 60s of 2:10"
+    );
+  });
+
   it("leaves failures to the error banner", () => {
     expect(referenceStatus({ ...ref, status: "error", error: "x" })).toBeNull();
   });

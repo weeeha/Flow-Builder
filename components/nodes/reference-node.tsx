@@ -2,6 +2,7 @@
 
 import type { NodeProps } from "@xyflow/react";
 import { MediaSlot } from "@/components/flow/media-slot";
+import { landSkeleton } from "@/lib/clip-drop";
 import { toFlowStatus } from "@/lib/flow-status";
 import { referenceStatus } from "@/lib/reference-status";
 import type { FlowNode } from "@/lib/types";
@@ -11,8 +12,9 @@ type Props = NodeProps<Extract<FlowNode, { type: "reference" }>>;
 
 /**
  * A dropped clip: the clip itself, a strip of the frames kept from it, one line
- * on where the read stands, and which path produced the graph. The one video
- * output comes from the kind table, drawn by BaseNode.
+ * on where the read stands, and which path produced the graph. When the clip
+ * was read but the analysis failed, it offers an empty image → video instead.
+ * The one video output comes from the kind table, drawn by BaseNode.
  */
 export function ReferenceNode({ id, data, selected }: Props) {
   // As in tts-node: a reloaded node sits at idle with its clip still set.
@@ -55,6 +57,16 @@ export function ReferenceNode({ id, data, selected }: Props) {
       <p aria-live="polite" className="mt-2 min-h-4 text-[11px] text-neutral-500">
         {line}
       </p>
+
+      {data.offerSkeleton && (
+        <button
+          type="button"
+          onClick={() => void landSkeleton(id)}
+          className="nodrag mt-1 w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[11px] font-medium text-neutral-700 hover:border-neutral-400 focus-visible:outline-2 focus-visible:outline-blue-500"
+        >
+          Start from an empty image → video instead
+        </button>
+      )}
     </BaseNode>
   );
 }

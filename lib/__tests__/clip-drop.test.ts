@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readClip } from "../clip-drop";
+import { landSkeleton, readClip } from "../clip-drop";
 import { CLIP_LOG_KEY, clipLogCounts } from "../clip-log";
 import { COLUMN_GAP } from "../flow-doc";
 import type { SampledClip } from "../frames";
@@ -116,6 +116,42 @@ describe("readClip", () => {
     sample.mockRejectedValueOnce(new Error("nope"));
     await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
     expect(localStorage.getItem(CLIP_LOG_KEY)).toBeNull();
+  });
+
+  it("turns away a file that is not a video before reading it", async () => {
+    const text = new File(["hello"], "notes.txt", { type: "text/plain" });
+    await readClip(text, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    expect(reference().data.status).toBe("error");
+    expect(reference().data.error).toBe("notes.txt is not a video. Drop an .mp4, .mov or .webm clip.");
+    expect(sample).not.toHaveBeenCalled();
+    expect(route).not.toHaveBeenCalled();
+  });
+
+  it("marks a clip read only in part", async () => {
+    sample.mockResolvedValueOnce({ ...sampled, duration: 130, trimmed: true });
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    expect(reference().data).toMatchObject({ duration: 130, trimmed: true, status: "done" });
+  });
+
+  it("offers an empty image-into-video skeleton when the analysis fails, and lands it on request", async () => {
+    route.mockResolvedValueOnce(Response.json({ error: "Analysis failed: gateway timeout" }, { status: 502 }));
+    const id = await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    expect(reference().data).toMatchObject({ status: "error", error: "Analysis failed: gateway timeout", offerSkeleton: true });
+
+    await landSkeleton(id, { revealMs: 0 });
+    const { nodes, edges } = useFlowStore.getState();
+    expect(nodes.map((n) => n.type).sort()).toEqual(["image", "reference", "video"]);
+    expect(edges).toHaveLength(1);
+    expect(edges[0].sourceHandle).toMatch(/:image$/);
+    expect(edges[0].targetHandle).toMatch(/:image$/);
+    expect(reference().data).toMatchObject({ status: "done", path: "fallback", offerSkeleton: false, error: undefined });
+    expect(clipLogCounts().real.fallback).toBe(1);
+  });
+
+  it("does not offer the skeleton when the clip itself could not be read", async () => {
+    sample.mockRejectedValueOnce(new Error("Could not read this file as a video"));
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    expect(reference().data.offerSkeleton).toBeFalsy();
   });
 
   it("shows a failed read on the reference node and lands no graph", async () => {

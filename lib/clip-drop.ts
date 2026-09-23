@@ -88,11 +88,17 @@ export async function readClip(
   } = {}
 ): Promise<string> {
   const { addReference, updateNodeData, setNodeStatus } = useFlowStore.getState();
-  const clipUrl = URL.createObjectURL(file);
+  const isVideo = file.type.startsWith("video/");
+  const clipUrl = isVideo ? URL.createObjectURL(file) : undefined;
   const spot = clearSpot({ ...at, ...REFERENCE_SIZE }, useFlowStore.getState().nodes.map(boxOf));
   const id = addReference(spot, { clipUrl, outputUrl: clipUrl });
+  if (!isVideo) {
+    setNodeStatus(id, "error", `${file.name} is not a video. Drop an .mp4, .mov or .webm clip.`);
+    return id;
+  }
   setNodeStatus(id, "running");
 
+  let clip: SampledClip;
   try {
     // Which of the frames the strip keeps is known before any arrive, so each
     // kept one shows as soon as it is read.
@@ -100,36 +106,79 @@ export async function readClip(
       pickThumbnails(Array.from({ length: FRAME_COUNT }, (_, i) => ({ t: i, dataUrl: "" })), KEPT_FRAMES).map((f) => f.t)
     );
     const strip: SampledFrame[] = [];
-    const clip = await sample(file, FRAME_COUNT, (frame, i) => {
+    clip = await sample(file, FRAME_COUNT, (frame, i) => {
       if (keptIndexes.has(i)) strip.push(frame);
       updateNodeData(id, { sampled: i + 1, frames: [...strip] });
     });
     updateNodeData(id, { ...clip, frames: pickThumbnails(clip.frames, KEPT_FRAMES) });
+  } catch (err) {
+    setNodeStatus(id, "error", (err as Error).message);
+    return id;
+  }
 
+  try {
     const res = await fetch("/api/analyze/clip", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(clip),
     });
     const body = (await res.json().catch(() => ({}))) as Partial<AnalyzeClipResponse> & { error?: string };
-    if (!res.ok || !body.graph || !body.breakdown) {
+    if (!res.ok || !body.graph || !body.breakdown || !body.path) {
       throw new Error(body.error ?? `Analysis failed (${res.status})`);
     }
-
-    const others = useFlowStore.getState().nodes.filter((n) => n.id !== id).map(boxOf);
-    const origin = clearSpot({ x: spot.x + COLUMN_GAP, y: spot.y, ...footprint(body.graph) }, others);
-    const { nodes, edges } = buildGraph(body.graph, origin);
-    await reveal(nodes, edges, reducedMotion ? 0 : revealMs);
+    await landBeside(id, body.graph, reducedMotion ? 0 : revealMs);
     updateNodeData(id, { summary: body.breakdown.summary, path: body.path, sampled: undefined });
-    if (body.path) recordClipRun({ path: body.path, stub: Boolean(body.stub) });
+    recordClipRun({ path: body.path, stub: Boolean(body.stub) });
     setNodeStatus(id, "done");
   } catch (err) {
+    // The clip was read, so there is something to start from: offer the skeleton.
+    updateNodeData(id, { sampled: undefined, offerSkeleton: true });
     setNodeStatus(id, "error", (err as Error).message);
   }
   return id;
 }
 
-/** The first video file a drag carries, if any. */
+/** A graph laid out one column right of a reference card, slid clear of other cards. */
+async function landBeside(referenceId: string, doc: FlowDoc, revealMs: number) {
+  const nodes = useFlowStore.getState().nodes;
+  const ref = nodes.find((n) => n.id === referenceId);
+  if (!ref) return;
+  const others = nodes.filter((n) => n.id !== referenceId).map(boxOf);
+  const origin = clearSpot(
+    { x: ref.position.x + COLUMN_GAP, y: ref.position.y, ...footprint(doc) },
+    others
+  );
+  const built = buildGraph(doc, origin);
+  await reveal(built.nodes, built.edges, revealMs);
+}
+
+/** What a failed analysis can still start from: one image into one video. */
+const SKELETON: FlowDoc = {
+  version: 1,
+  nodes: [
+    { id: "image-1", kind: "image", data: {} },
+    { id: "video-1", kind: "video", data: {} },
+  ],
+  edges: [{ source: "image-1", sourceHandle: "image-1:image", target: "video-1", targetHandle: "video-1:image" }],
+};
+
+/**
+ * Land the empty skeleton beside a reference card whose analysis failed. Logged
+ * as a fallback, since the model produced nothing usable.
+ */
+export async function landSkeleton(
+  referenceId: string,
+  { revealMs = REVEAL_MS, reducedMotion = prefersReducedMotion() }: { revealMs?: number; reducedMotion?: boolean } = {}
+): Promise<void> {
+  const { updateNodeData, setNodeStatus } = useFlowStore.getState();
+  updateNodeData(referenceId, { offerSkeleton: false });
+  await landBeside(referenceId, SKELETON, reducedMotion ? 0 : revealMs);
+  updateNodeData(referenceId, { path: "fallback" });
+  recordClipRun({ path: "fallback", stub: false });
+  setNodeStatus(referenceId, "done", undefined);
+}
+
+/** The first file a drag carries. A non-video one is turned away on the card. */
 export function clipFrom(transfer: DataTransfer | null): File | undefined {
-  return [...(transfer?.files ?? [])].find((f) => f.type.startsWith("video/"));
+  return transfer?.files?.[0];
 }

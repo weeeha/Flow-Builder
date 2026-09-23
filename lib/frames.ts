@@ -12,8 +12,19 @@ export interface SampledFrame {
 
 export interface SampledClip {
   frames: SampledFrame[];
+  /** The whole clip's length, even when only part of it was read. */
   duration: number;
+  /** True when only the first MAX_CLIP_SECONDS were read. */
+  trimmed?: boolean;
   hasAudio: boolean | "unknown";
+}
+
+/** The longest stretch read from a clip; a longer one is read from its start. */
+export const MAX_CLIP_SECONDS = 60;
+
+/** How much of a clip gets sampled. */
+export function sampledSpan(duration: number): number {
+  return Math.min(duration, MAX_CLIP_SECONDS);
 }
 
 /** Frames sampled per clip, all of which go to the analysis. */
@@ -103,7 +114,7 @@ export async function sampleFrames(
     if (!ctx) throw new Error("Canvas 2D is unavailable");
 
     const frames: SampledFrame[] = [];
-    for (const t of sampleTimes(duration, n)) {
+    for (const t of sampleTimes(sampledSpan(duration), n)) {
       const seeked = once(video, "seeked");
       video.currentTime = t;
       await seeked;
@@ -117,6 +128,7 @@ export async function sampleFrames(
     return {
       frames,
       duration,
+      trimmed: duration > MAX_CLIP_SECONDS,
       hasAudio: guessAudio(video as HTMLVideoElement & Parameters<typeof guessAudio>[0]),
     };
   } finally {

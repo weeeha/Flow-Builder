@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessAudio, pickThumbnails, sampleTimes } from "../frames";
+import { MAX_CLIP_SECONDS, guessAudio, pickThumbnails, sampleTimes, sampledSpan } from "../frames";
 
 describe("sampleTimes", () => {
   it("spreads n timestamps evenly from the first frame to just before the end", () => {
@@ -50,5 +50,16 @@ describe("pickThumbnails", () => {
 
   it("keeps every frame when there are no more than asked for", () => {
     expect(pickThumbnails(frames.slice(0, 2), 3)).toEqual(frames.slice(0, 2));
+  });
+});
+
+describe("sampledSpan", () => {
+  it("reads a clip up to a minute whole", () => {
+    expect(sampledSpan(42)).toBe(42);
+  });
+
+  it("reads only the first minute of a longer clip", () => {
+    expect(MAX_CLIP_SECONDS).toBe(60);
+    expect(sampledSpan(130)).toBe(60);
   });
 });

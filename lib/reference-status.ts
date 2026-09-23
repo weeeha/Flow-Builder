@@ -1,4 +1,4 @@
-import { FRAME_COUNT } from "./frames";
+import { FRAME_COUNT, MAX_CLIP_SECONDS } from "./frames";
 import type { ReferenceNodeData } from "./types";
 
 /**
@@ -11,5 +11,12 @@ export function referenceStatus(data: ReferenceNodeData): string | null {
     return sampled < FRAME_COUNT ? `Sampling frames ${sampled}/${FRAME_COUNT}` : "Reading the shot";
   }
   if (data.status === "error") return null;
-  return data.summary ?? null;
+  if (!data.summary) return null;
+  return data.trimmed ? `${data.summary} · first ${MAX_CLIP_SECONDS}s of ${clock(data.duration)}` : data.summary;
+}
+
+/** 130 → "2:10". */
+function clock(seconds: number): string {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
