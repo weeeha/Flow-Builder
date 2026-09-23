@@ -1,70 +1,38 @@
-# Handoff · Flow Builder · 2026-09-21 01:05 EDT
-Branch: claude/roadmap-specs-review-d07960 (docs, local, off `main` 74098b2, not pushed) · Code: build 07 merged into `claude/design-system-component-reuse-321c19` (571fe09); registry slice 1 merged into the design-system line (72068df); slice 2, the inspector, on `inspector` (629bf1b, off 72068df, not merged) · `origin` still holds 296bafe for the design-system branch · PR: none new · Preview: http://localhost:3000 while `pnpm dev` runs in the design-system worktree
+# Handoff · Flow Builder · 2026-09-23
+Branch: `clip-to-graph` (code, PR #6) and `claude/roadmap-specs-review-d07960` (these docs) · Preview: none on Vercel; `pnpm dev` then http://localhost:3000 (port 3107 in the last session)
 
 ## Goal
-Finish the three builds Nick picked for Flow Builder (00 foundation, 07 Concept Cluster, 11 Clip to graph) and add the inspector and node registry from CONCEPT.md, in the order Nick chose on 2026-09-20 (order 4: finish 07, registry slice 1, inspector, runners and views, then build 11).
+Finish Nick's picked builds (00 foundation, 07 Concept Cluster, 11 Clip to graph) plus the inspector and node registry from CONCEPT.md, in build order 4. All of it is now built and in PR #6.
 
-## Done (registry slice 2, the inspector, 2026-09-21)
-- `components/inspector.tsx`: a right-hand `aside` for the one selected node, rendering every `placement: "inspector"` field from the kind table, in table order. Non-modal by construction: no overlay, no focus trap, canvas stays live.
-- `lib/inspector.ts`: `inspectorFields`, `fieldValue` (a select writes the option's own value, so `duration` stays a number), and `inspectorTarget` as a [HAND] stub carrying `lastId`.
-- The video card gave up its model and duration selects, the tts card its voice select. The image and tts model pickers exist for the first time. `optionLabel` feeds every card header, so tts stops hard-coding its model name.
-- Icons moved to `components/nodes/icons.tsx`, shared by toolbar and panel until slice 3.
-- Suite 17 files, 171 passed, 3 todo; typecheck clean. `components/inspector.test.tsx` drives the real Radix selects under jsdom.
-- Verified in headless Chrome, `scripts/check-inspector-chrome.mjs`, 15/15. The palette check still passes 7/7 and the cluster check 14/14.
-
-## Done (registry slice 1, 2026-09-21)
-- `lib/node-kinds.ts`: `NODE_KINDS` keyed by kind, closed with `satisfies`, holding label, group, ports, param fields and starting data. Helpers `initialData`, `outputsOf`, `portTop`, `inPalette`, `PALETTE_KINDS`, `NODE_KIND_LIST`. Pure data, no React.
-- `lib/store.ts` lost `defaultData` and `components/node-toolbar.tsx` lost `NODE_BUTTONS`; both read the table. Icons stay in the toolbar behind an exhaustive `Record<NodeKind, ReactNode>` until slice 3. Nothing changed on screen.
-- Tests: `lib/__tests__/node-kinds.test.ts` (23) pins today's defaults, every kind's port list, the card/inspector split and the palette rule; `lib/__tests__/store.test.ts` (8) pins what `addNode` produces. Suite 15 files, 145 passed, 2 todo; typecheck clean. The pinning tests were checked for teeth by changing a table value and watching them fail.
-- Verified in headless Chrome against this branch: all five toolbar buttons add their card (`scripts/check-palette-chrome.mjs`, 7/7, new and committed), the cluster path still passes 14/14, and a graph saved in the pre-registry shape reloads with its nodes, edges, prompts, model and duration intact.
-
-## Done (build 07, 2026-09-20)
-- Reviewed CONCEPT.md, HANDOFF.md and the four build docs against the code at 296bafe; every checkable claim held. Docs moved onto this branch, which is based on the merged `main`, and updated as work landed.
-- Build 07 tasks 8, 9 and 10 built test first on a task branch, then fast-forwarded into `claude/design-system-component-reuse-321c19` (571fe09) with the suite green on the merged tree: `lib/branch.ts` (`branchFromPin`, both branch kinds, tested against the real store), `rerollGroup` and `rerollClusterGroup` (one group re-rolls alone, pins win), the to-video button and a shuffle button per group header, and `app/api/generate/cluster/route.ts` (fixture rotation without a key, `generateText` with `Output.object` and one retry on a schema failure with a key). The executor posts to the route for Run, Run all and the per-group re-roll.
-- `ai` upgraded from ^5 to ^7 (registry `latest`; v6 is already a legacy dist-tag and nothing imported `ai` before this route). `generateObject` is deprecated since AI SDK 6, so the route uses `generateText` with `Output.object`. `vitest.config.mts` aliases `server-only` to Next's empty shim so route tests can import `lib/llm.ts`.
-- Task 11, Chrome half: `scripts/check-cluster-chrome.mjs` drives headless Chrome over the DevTools protocol with real input events, 14/14 checks on the final code (chips, Tab focus with `:focus-visible`, Enter and Space pin toggles, pin handle, to video wired, a second pin connecting by drag, one-group re-roll with both pins intact). Screenshot saved by the script.
-- Task 11, Safari half: `scripts/check-cluster-safari.mjs` is written and mirrors the Chrome checks through safaridriver, but Safari refused the session: "Allow remote automation" is off in Safari's Developer settings. That is Nick's setting to change; nothing else was tried.
-- `pnpm test` on the merged design-system branch (571fe09): 13 files, 114 passed, 2 todo. `pnpm typecheck` clean. The route answered through the dev server in stub mode: first set, then the second set when sent the first, 400 on an empty prompt.
+## Done (2026-09-23)
+- Registry slice 3: `RUNNERS` (`lib/runners.ts`), `NODE_VIEWS` (`components/nodes/registry.tsx`), `BaseNode` draws static ports via `shellPorts` · c9367e2, 0b422b8
+- Build 11 tasks 1 to 12: frames, FlowDoc, analyze route (stub, live with one repair, local fallback), `loadGraph`/`buildGraph`, reference kind, drop and Choose clip, staggered reveal, frame strip and validity log, error states and skeleton offer · 231b251 to 4201425
+- Nick's decisions, all recorded in code: 1A `edgeIsValid` rejects named ports; 2A own prompt first; 3A inspector closes; 4A tts never collapses; 6A composition takes audio; 7A keep 3 frames; 8A drops slide clear of cards; 9A spacing 480 x 400; 10A no queued status; 11A keep AI SDK 7 · 805a4ed and the commits after it
+- `check-cluster-chrome.mjs` flake fixed: the Re-roll button sat off screen and the click hit nothing · e4b5c6a
+- PR #6 opened: `clip-to-graph` into `main`, carrying everything since the import
 
 ## State right now
-- `main` = `origin/main` = 74098b2 (PR #2 merged). PRs #3 `runway-node`, #4 `concept-cluster`, #5 `claude/design-system-component-reuse-321c19` were not in `origin/main` at the last local fetch; run `git fetch` before assuming more.
-- Working line for code: `claude/design-system-component-reuse-321c19` at 571fe09 locally, 3 commits ahead of `origin` (296bafe, PR #5). Pushing it updates PR #5 in place; Nick's go needed. `cluster-finish` was fast-forwarded in and deleted.
-- Picked builds:
-  - **00 foundation**: built. F1 to F4 are e37fc0a, e2fcb86, 5164ba4, b7c22f4.
-  - **07 Concept Cluster**: tasks 1 to 10 built. Open: task 11's Safari half (blocked on the Safari setting), task 12 [HAND].
-  - **11 Clip to graph**: nothing built. Thin slice is tasks 1 to 8, about 3 h. Task 3 is [HAND].
-  - **Inspector and node registry** (CONCEPT.md): nothing built. No `node-kinds`, `runners`, `registry` or inspector file exists on any branch.
-- Docs: this branch holds the current CONCEPT.md, HANDOFF.md and `docs/builds/`. `claude/flow-node-builder-handoff-061dc6` (af4943e) is superseded; `origin/main` holds the PR #1 revision.
-- Dev server: `pnpm dev` runs in the design-system worktree on port 3000 (started 2026-09-20 22:20; may have stopped since). One React Flow console warning (error 004, container needs a size) appeared once at pane startup, before any node was added; not investigated.
-- Blockers: none for the next code step (registry slice 1).
+- Tests: `pnpm test` 25 files, 265 passed, 1 todo (queued status, parked). `pnpm typecheck` clean.
+- Browser: headless Chrome against `pnpm dev`, stub mode: palette 7/7, inspector 15/15, cluster 14/14, runall 15/15, clip-drop 21/21, clip-errors 10/10.
+- Not verified: Safari (needs Safari > Settings > Developer > Allow remote automation); any live model or provider call (no keys set anywhere); a dropped clip after a reload (object URL, no Blob upload yet).
+- Local branches `inspector`, `registry-slice-3`, `claude/design-system-component-reuse-321c19` are all ancestors of `clip-to-graph`; safe to delete once PR #6 merges.
 
 ## Decisions made (and why)
-- Nick, 2026-09-20 21:05, build order 4: finish 07, registry slice 1, inspector, runners and views, then build 11 on the finished registry. Nick then picked "2 and then 3": build 07 tasks 8, 9, 11 first, then the SDK upgrade and task 10.
-- `ai` ^7 rather than ^6 · the registry's `latest` is 7.0.107 and v6 is a legacy tag; nothing imported `ai` before, so the choice cost nothing. Downgrading is a one-line change if Nick wants v6.
-- `generateText` + `Output.object` instead of `generateObject` · deprecated since AI SDK 6 per the installed docs (`node_modules/ai/docs/08-migration-guides/24-migration-guide-6-0.mdx`).
-- The retry keys on `NoObjectGeneratedError` only · any other failure (gateway 401, network) surfaces at once in the node's error banner.
-- Cross-browser checks as committed scripts, not hand checks · the pass is repeatable and produces a screenshot; the built-in Browser pane's synthetic Enter and Space do not fire default clicks, so it cannot stand in for either browser.
-- Branch action extracted to `lib/branch.ts` · the store-level seam made a real test possible without rendering React Flow.
-- Nick, 2026-09-20 22:15: merge back locally (option 1 of the finishing menu) · fast-forward into the design-system branch, tests and typecheck green on the merged tree, task branch deleted.
+- The HAND items were decided by Nick as options (answers 1A to 11A) and written by Claude to those rules, since he picked a rule rather than "I'll write it".
+- `generateText` + `Output.object` and file parts for frames · `generateObject` and image parts are deprecated in the installed AI SDK 7.
+- Over-60s clips are read from their first 60s automatically · nothing past 60s can be read, so asking first adds a click with no real choice.
+- `loadGraph` split into `buildGraph` + `addGraph` · the staggered reveal needs to add nodes piecewise without minting new ids.
 
 ## Tried and rejected
-- `vi.mock("server-only")` · vitest cannot resolve a module that only Next provides; the alias to `next/dist/compiled/server-only/empty.js` works.
-- Selecting suggestion groups by `[role=group]` index in the check scripts · React Flow adds its own `role=group` elements per edge, which shifts the indices; select by the `"<axis> suggestions"` label instead.
-- Generating the inspector form from zod introspection; one definition object per kind · see CONCEPT.md, unchanged.
-- Importing `NODE_KINDS` into the palette check script · Node's resolver cannot follow the table's extensionless imports, and a script that imports the table only proves it equals itself. The script keeps its own copy of the five labels on purpose.
-- An all-optional parameter for `inPalette` · TypeScript's weak-type rule rejects a spec with no `palette` key, so the parameter requires `label`.
-- Radix Dialog or Sheet for the inspector · both are modal, and the canvas has to stay usable while it is open.
-- A fixed sleep after the cluster script's re-roll · on a cold dev server the first request to the cluster route waits for Next to compile it, which read as a failed re-roll. It polls now.
+- Plan layout spacing 320 x 220 · overlaps real cards (widest 420, tallest about 360).
+- Persisting all 8 frames · about 109KB per clip in localStorage.
+- Treating the cluster check failure as an app regression · logging showed the app re-rolled correctly every time; the test clicked off screen.
 
 ## Next (do in order)
-0. Decide where `inspector` (629bf1b) goes: merge into the design-system line as slice 1 was, or keep it separate. Slice 3 branches from wherever it lands.
-1. Nick: turn on Safari > Settings > Developer > Allow remote automation, then with `pnpm dev` up run `safaridriver -p 4445 &` and `node scripts/check-cluster-safari.mjs`. Expect 14/14; note any difference from Chrome.
-2. Publish, with Nick's go: push `claude/design-system-component-reuse-321c19` (updates PR #5 with tasks 8-10); push this docs branch and open a PR against `main`.
-3. Runners and views (slice 3): `lib/runners.ts` and `components/nodes/registry.tsx`; move the cluster fetch from `rollCluster` into `RUNNERS.cluster`; the executor and `nodeTypes` read the tables.
-4. Build 11 thin slice, tasks 1 to 8, on the finished registry.
-5. Past the thin slices: 11 tasks 9 to 12; 07 task 12 [HAND].
-6. [HAND] stubs stay with Nick: `effectivePrompt` (`it.todo` in `lib/__tests__/prompt.test.ts`), `edgeIsValid`, `inspectorTarget`, `shouldCollapsePrompt` in `tts-node.tsx`.
-7. First real model call, when a key exists: set `AI_GATEWAY_API_KEY` in `.env.local`, Run a cluster node, and confirm the three unverified items in the 07 spec (schema-failure error class, plain string slug through the gateway, zod 4 `.refine` against `Output.object`).
+1. Review and merge PR #6, then this docs PR.
+2. Nick: switch on Safari remote automation, then `safaridriver -p 4445 &` and `node scripts/check-cluster-safari.mjs` with `pnpm dev` up. Port the four other Chrome scripts to Safari when that works.
+3. Set `AI_GATEWAY_API_KEY` in `.env.local` and drop a real clip: confirm the gateway slug, file parts, and request size for 8 frames (spec.md section 10).
+4. Set `BLOB_READ_WRITE_TOKEN` so a dropped clip survives a reload; then wire `clipMissing` on the reference card.
 
 ## Verify
-`pnpm test` passes (15 files, 145 passed, 2 todo on `node-registry`; 13 files, 114 passed on the design-system line) and `pnpm typecheck` is clean. Run typecheck with no `pnpm dev` running in the same worktree: a dev server rewrites `.next/dev/types/validator.ts` while tsc reads it and the torn file reports a bogus TS1434. `rm -rf .next/dev/types` clears it. `node scripts/check-cluster-chrome.mjs` reports 14/14 against `pnpm dev`. Each build plan ends with an acceptance walkthrough that runs in stub mode with zero keys; a build is done when its walkthrough plays in Chrome and Safari.
+`pnpm test` and `pnpm typecheck` (with no dev server in the same worktree, or `rm -rf .next/dev/types` first). With `pnpm dev` up: `node scripts/check-<name>-chrome.mjs` for palette, inspector, cluster, runall, clip-drop, clip-errors (APP_URL if not port 3000). All should pass.

@@ -1,6 +1,16 @@
 # Clip to graph
 
-Status: refreshed 2026-09-20 from the 2026-09-19 draft · Base: claude/design-system-component-reuse-321c19 @ 296bafe · Nothing built yet
+Status: refreshed 2026-09-20 from the 2026-09-19 draft · Built 2026-09-23, tasks 1-12, on `clip-to-graph` (4201425), PR #6 · Chrome verified in stub mode; Safari and a live model call not verified
+
+Where the build differs from this spec, decided 2026-09-23:
+- `generateText` with `Output.object` instead of `generateObject` (deprecated since AI SDK 6), and frames go as file parts with `mediaType: "image/jpeg"` (image parts are deprecated in AI SDK 7).
+- `breakdownToGraph(breakdown, hasAudio)` takes the audio flag; its tts speaks the summary as a placeholder.
+- `layoutGraph` spacing is 480 x 400, measured from the cards; 320 x 220 overlaps them.
+- The reference card keeps 3 of the 8 frames (first, middle, last) to hold localStorage use near 41KB per clip (Nick, 7A). All 8 go to the analysis.
+- A drop slides the reference card and the graph clear of existing cards with `clearSpot` (Nick, 8A).
+- A clip over 60s is read from its first 60s automatically and the card says so, rather than asking first.
+- `edgeIsValid` rejects a named port on a model kind (Nick, 1A), and checks that each handle id names its own end of the edge.
+- `loadGraph` drops a param value the registry does not offer (an unknown model name) and keeps the kind's default.
 
 ## 1. TL;DR
 You drop a video clip on the canvas. A vision model reads eight sampled frames and proposes a shot breakdown plus a node graph approximating it: image into video into composition. The same typed-handle rule that stops you wiring audio into an image input by hand validates the model's graph, repairs it once, then falls back to a graph built from the breakdown. Every run logs which path produced the graph, so the first-pass validity rate is measurable over time.

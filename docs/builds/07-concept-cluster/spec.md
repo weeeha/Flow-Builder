@@ -1,9 +1,9 @@
 # Concept Cluster node
 
-Status: refreshed 2026-09-20 from the 2026-09-19 draft, updated the same evening after tasks 8-10 · Base: claude/design-system-component-reuse-321c19, thin slice @ 296bafe, tasks 8-10 @ 571fe09 · open: task 11's Safari half, task 12 [HAND]
+Status: refreshed 2026-09-20 from the 2026-09-19 draft, updated the same evening after tasks 8-10 · Base: claude/design-system-component-reuse-321c19, thin slice @ 296bafe, tasks 8-10 @ 571fe09 · task 12 done 2026-09-23 · in PR #6 · open: task 11's Safari half
 
 ## 1. TL;DR
-Concept Cluster is a node kind that fans one loose prompt into three or four grouped suggestions, a pattern taken from Runway's Concept Cluster. Pinning a suggestion turns it into a text output wired to another node; re-rolling reshuffles everything except what is pinned. It runs with zero API keys, against a local fixture, the same stub pattern every generation route in this app already uses. Tasks 1-10 are built; what remains is the Safari half of the cross-browser pass and Nick's hand task on `effectivePrompt`.
+Concept Cluster is a node kind that fans one loose prompt into three or four grouped suggestions, a pattern taken from Runway's Concept Cluster. Pinning a suggestion turns it into a text output wired to another node; re-rolling reshuffles everything except what is pinned. It runs with zero API keys, against a local fixture, the same stub pattern every generation route in this app already uses. Tasks 1-10 are built; what remains is the Safari half of the cross-browser pass.
 
 ## 2. Changes since the 2026-09-19 draft
 - Foundation (F1-F4) and build 07 tasks 1-7 are built on `claude/design-system-component-reuse-321c19`; only tasks 8-12 remain.

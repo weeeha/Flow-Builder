@@ -1,6 +1,6 @@
 # Concept Cluster: build plan
 
-Total 3.5 h · Tasks 1-10 built on `claude/design-system-component-reuse-321c19` (thin slice @ 296bafe, tasks 8-10 @ 571fe09) · open: task 11's Safari half, task 12 [HAND]
+Total 3.5 h · Tasks 1-10 and 12 built; in PR #6 (branch `clip-to-graph`) · open: task 11's Safari half
 
 ## Before you start
 - Work on a branch cut from `claude/design-system-component-reuse-321c19` at or after 571fe09, or from `main` once PRs #2 to #5 are merged into it.
@@ -30,7 +30,7 @@ Files: `scripts/check-cluster-chrome.mjs` (run, 14/14) and `scripts/check-cluste
 Steps: with `pnpm dev` up, turn on Safari > Settings > Developer > Allow remote automation, start `safaridriver -p 4445`, run `node scripts/check-cluster-safari.mjs`. The script tabs to a chip and checks `:focus-visible`, toggles a pin with Enter and Space, drags a pinned handle onto a video node's text input, clicks to video and re-rolls one group, then writes a screenshot. The built-in Browser pane is no substitute: its synthetic Enter and Space do not fire default clicks.
 Verify: 14/14 in Safari; note any difference from Chrome.
 
-**12. [HAND] Finish effectivePrompt.** 10 min. Nick's, no agent.
+**12. [HAND] Finish effectivePrompt.** 10 min. Nick's, no agent. Done 2026-09-23: Nick chose own prompt first, wired text after, one space (805a4ed).
 Goal: replace `lib/prompt.ts`'s provisional "both present" behavior with a real decision.
 Files: `lib/prompt.ts`, `lib/__tests__/prompt.test.ts`.
 The open question: when a wired text and the node's own prompt both exist, does the wire prefix, suffix or replace it, and what joins them. Four of the five cases in `prompt.test.ts` already pass against the provisional default (own prompt first, space-joined); the fifth is `it.todo(...)`, marked `[HAND]`, and should stay that way for anyone but Nick.
@@ -38,7 +38,7 @@ Worth weighing: `gatherInputs` pushes one string per incoming text edge with no 
 Verify: `pnpm test` green.
 
 ## Cut line
-Only task 11's Safari half and task 12 remain. The Safari half blocks nothing else and can wait for a session with Safari's remote automation switched on.
+Only task 11's Safari half remains. The Safari half blocks nothing else and can wait for a session with Safari's remote automation switched on.
 
 ## Acceptance walkthrough (stub mode, zero keys)
 Setup: a cluster node on the canvas, already run once so four groups show, nothing pinned, empty space to its right.

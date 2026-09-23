@@ -13,6 +13,8 @@ Refreshed 2026-09-20 from the 2026-09-19 draft, nothing built yet · Total 5 h, 
 
 ## Tasks
 
+All twelve built 2026-09-23 on `clip-to-graph`, PR #6. Browser checks: `scripts/check-clip-drop-chrome.mjs` (21/21) and `scripts/check-clip-errors-chrome.mjs` (10/10). Deviations are listed at the top of spec.md.
+
 **1. Frame sampling.** 25 min. lib/frames.ts.
 `sampleFrames(file, n=8)`: hidden `<video>`, seek to n evenly spaced timestamps (first and last included), draw to a 512px canvas at JPEG 0.7, one rAF after `seeked`; audio guess via `audioTracks?.length` then `webkitAudioDecodedByteCount`, else `"unknown"`.
 Verify: log the array for a real clip in a visible browser window, 8 plausible entries (a hidden or background tab fakes `seeked` timing).

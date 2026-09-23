@@ -129,6 +129,8 @@ Rules that keep the refactor safe:
 - Two TypeScript catches. `BaseNodeData` extends `Record<string, unknown>`, so `keyof` collapses to `string`; `KnownKeys` has to strip the index signature or field keys go unchecked. The executor's `RUNNERS[node.type](...)` call needs one cast, because TypeScript cannot correlate `node.type` with `node.data` through a record lookup.
 - zod is `^4.4.2` on the working line, so `z.toJSONSchema` is available. Derive a zod object from `fields` when build 11 or an MCP client needs param schemas. Keep the form driven by `fields`.
 
+**Slice 3 built 2026-09-23** on `registry-slice-3` (c9367e2, 0b422b8), now in PR #6: `RUNNERS` in `lib/runners.ts` (image, video and tts share `postRoute`; composition passes its first video and audio through; the cluster returns the function form of the patch), `NODE_VIEWS` in `components/nodes/registry.tsx` with `nodeTypes` derived from it, and `shellPorts(kind)` so `BaseNode` draws every input and static output. The executor's `applyPatch` re-reads the node and skips one deleted mid-run. `scripts/check-runall-chrome.mjs` confirms a graph saved before the refactor reloads with its edges and handle offsets intact.
+
 ## Card and inspector split (decision 2C)
 
 | Kind | Card keeps | Inspector gets | Today |
@@ -144,16 +146,16 @@ The card header keeps its read-only model label, so the model in use stays visib
 ## Inspector behaviour
 
 **Slice 2 built 2026-09-21** on branch `inspector` (629bf1b): `components/inspector.tsx` renders every field whose `placement` is `inspector`, in table order, for the one selected node. What the build added beyond the description below:
-- `lib/inspector.ts` holds the pure part: `inspectorFields(kind)`, `fieldValue(spec, raw)` (a select writes the option's own value, so `duration` stays the number 6), and the `inspectorTarget` [HAND] stub.
+- `lib/inspector.ts` holds the pure part: `inspectorFields(kind)`, `fieldValue(spec, raw)` (a select writes the option's own value, so `duration` stays the number 6), and `inspectorTarget` (decided 2026-09-23, below).
 - `optionLabel(kind, key, value)` in the kind table feeds the card headers, so the tts card stops hard-coding its model name and every header reads the same label the panel shows.
 - The video card keeps a read-only `4s` in its footer, so the duration stays visible once its select moves to the panel.
-- Icons live in `components/nodes/icons.tsx`, shared by the toolbar and the panel until slice 3 folds them into `NODE_VIEWS`.
+- Icons lived in `components/nodes/icons.tsx` until slice 3 folded them into `NODE_VIEWS`.
 - The More/Less toggle is built but renders only when a field declares `group: "advanced"`. None does yet.
 
 - A right-hand `aside` floating over the canvas, about 340px wide (estimated from the screenshot). It is non-modal: no overlay, no focus trap, and the canvas stays interactive. Radix Dialog and Sheet are modal, so use a plain positioned element.
 - It shows when exactly one node is selected. Header: kind icon and label. Body: every `placement: "inspector"` field. Fields with `group: "advanced"` sit behind a More/Less toggle, as in the reference.
 - Controls come from `components/ui` (select, input, textarea). Every control has a visible label and a focus ring, and the panel follows the canvas in tab order.
-- Proposed [HAND] task for Nick, about 8 lines: `inspectorTarget(nodes, lastId)` decides what the panel shows with nothing selected, with several nodes selected, and after a deselect (close like the reference, or stay on the last node like Figma).
+- Decided by Nick 2026-09-23 (3A): the panel closes with nothing or several selected, like the reference. `inspectorTarget(nodes)` returns the one selected node or null; `lastId` was dropped.
 
 ## Related work
 
