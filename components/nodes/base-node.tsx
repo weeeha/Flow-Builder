@@ -1,14 +1,18 @@
 "use client";
 
+import { Position } from "@xyflow/react";
 import { Loader2, Play, Trash2, AlertCircle } from "lucide-react";
+import { TypedHandle } from "@/components/handles/typed-handle";
 import { runSingleNode } from "@/lib/executor";
+import { NODE_KINDS, shellPorts } from "@/lib/node-kinds";
 import { useFlowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import type { NodeStatus } from "@/lib/types";
+import type { NodeKind, NodeStatus } from "@/lib/types";
 
 interface BaseNodeProps {
   id: string;
-  title: string;
+  /** Names the card and supplies its ports, both read from NODE_KINDS. */
+  kind: NodeKind;
   modelLabel?: string;
   status: NodeStatus;
   error?: string;
@@ -16,11 +20,13 @@ interface BaseNodeProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   width?: number;
+  /** Keeps Run off until the node has what it needs. Defaults to never. */
+  runDisabled?: boolean;
 }
 
 export function BaseNode({
   id,
-  title,
+  kind,
   modelLabel,
   status,
   error,
@@ -28,6 +34,7 @@ export function BaseNode({
   children,
   footer,
   width = 320,
+  runDisabled = false,
 }: BaseNodeProps) {
   const deleteNode = useFlowStore((s) => s.deleteNode);
 
@@ -41,8 +48,20 @@ export function BaseNode({
       )}
       style={{ width }}
     >
+      {shellPorts(kind).map((p) => (
+        <TypedHandle
+          key={`${p.side}:${p.type}:${p.port ?? ""}`}
+          id={id}
+          type={p.side}
+          position={p.side === "target" ? Position.Left : Position.Right}
+          handleType={p.type}
+          port={p.port}
+          style={p.top === undefined ? undefined : { top: p.top }}
+        />
+      ))}
+
       <div className="flex items-center justify-between px-3 pt-2 text-[11px] text-neutral-500">
-        <span>{title}</span>
+        <span>{NODE_KINDS[kind].label}</span>
         {modelLabel && <span className="text-neutral-400">{modelLabel}</span>}
       </div>
 
@@ -67,7 +86,7 @@ export function BaseNode({
           </button>
           <button
             onClick={() => runSingleNode(id)}
-            disabled={status === "running"}
+            disabled={status === "running" || runDisabled}
             className="flex items-center gap-1 rounded-md bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
           >
             {status === "running" ? (

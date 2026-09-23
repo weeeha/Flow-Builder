@@ -10,16 +10,10 @@ import {
   type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
-import type {
-  CompositionNodeData,
-  FlowEdge,
-  FlowNode,
-  ImageNodeData,
-  NodeKind,
-  NodeStatus,
-  TTSNodeData,
-  VideoNodeData,
-} from "./types";
+import { MODEL_KINDS, layoutGraph, toNodeData, type FlowDoc, type ModelKind } from "./flow-doc";
+import { handleId, parseHandleId } from "./handles";
+import { initialData } from "./node-kinds";
+import type { FlowEdge, FlowNode, NodeKind, NodeStatus, ReferenceNodeData } from "./types";
 
 interface FlowState {
   nodes: FlowNode[];
@@ -28,6 +22,18 @@ interface FlowState {
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
   addNode: (kind: NodeKind, position: { x: number; y: number }) => string;
+  /**
+   * Place a reference node for a dropped clip. Kept apart from addNode: only the
+   * drop pipeline builds one, never the toolbar.
+   */
+  addReference: (position: { x: number; y: number }, data: Partial<ReferenceNodeData>) => string;
+  /**
+   * Add a graph document beside what is on the canvas, laid out from `origin`.
+   * Returns the new id of each document node, keyed by its document id.
+   */
+  loadGraph: (doc: FlowDoc, opts: { origin: { x: number; y: number } }) => Record<string, string>;
+  /** Append nodes and edges as they are; `buildGraph` makes them from a document. */
+  addGraph: (nodes: FlowNode[], edges: FlowEdge[]) => void;
   updateNodeData: (id: string, data: Partial<FlowNode["data"]>) => void;
   setNodeStatus: (id: string, status: NodeStatus, error?: string) => void;
   deleteNode: (id: string) => void;
@@ -37,28 +43,53 @@ interface FlowState {
 let nodeCounter = 0;
 const nextId = (kind: NodeKind) => `${kind}-${++nodeCounter}-${Date.now().toString(36)}`;
 
-const defaultData: Record<NodeKind, FlowNode["data"]> = {
-  image: {
-    status: "idle",
-    prompt: "",
-    model: "flux-dev",
-  } satisfies ImageNodeData,
-  video: {
-    status: "idle",
-    prompt: "",
-    model: "seedance-2.0",
-    duration: 4,
-  } satisfies VideoNodeData,
-  tts: {
-    status: "idle",
-    prompt: "",
-    voice: "Rachel",
-    model: "eleven_multilingual_v2",
-  } satisfies TTSNodeData,
-  composition: {
-    status: "idle",
-  } satisfies CompositionNodeData,
-};
+/**
+ * A graph document as new nodes and edges, laid out from `origin`, with fresh
+ * ids and every handle id rewritten onto them. Nothing is added to the store,
+ * so a caller can add the result at once or a piece at a time.
+ */
+export function buildGraph(
+  doc: FlowDoc,
+  origin: { x: number; y: number }
+): { nodes: FlowNode[]; edges: FlowEdge[]; ids: Record<string, string> } {
+  const at = layoutGraph(doc, origin);
+  const ids: Record<string, string> = {};
+  const nodes: FlowNode[] = [];
+  for (const node of doc.nodes) {
+    // validateGraph rejects these; loading stays safe on a graph it never saw.
+    if (!(MODEL_KINDS as readonly string[]).includes(node.kind)) continue;
+    const kind = node.kind as ModelKind;
+    ids[node.id] = nextId(kind);
+    nodes.push({
+      id: ids[node.id],
+      type: kind,
+      position: at[node.id],
+      data: toNodeData(kind, node.data),
+    } as FlowNode);
+  }
+
+  const edges: FlowEdge[] = [];
+  for (const edge of doc.edges) {
+    const from = parseHandleId(edge.sourceHandle);
+    const to = parseHandleId(edge.targetHandle);
+    const source = ids[edge.source];
+    const target = ids[edge.target];
+    if (!from || !to || !source || !target) continue;
+    const sourceHandle = handleId(source, from.type, from.port);
+    const targetHandle = handleId(target, to.type, to.port);
+    edges.push({
+      id: `${sourceHandle}->${targetHandle}`,
+      source,
+      target,
+      sourceHandle,
+      targetHandle,
+      animated: false,
+      style: { stroke: "#94a3b8" },
+    });
+  }
+
+  return { nodes, edges, ids };
+}
 
 export const useFlowStore = create<FlowState>()(
   persist(
@@ -85,10 +116,29 @@ export const useFlowStore = create<FlowState>()(
           id,
           type: kind,
           position,
-          data: { ...defaultData[kind] },
+          data: initialData(kind),
         } as FlowNode;
         set({ nodes: [...get().nodes, newNode] });
         return id;
+      },
+      addReference: (position, data) => {
+        const id = nextId("reference");
+        const node: FlowNode = {
+          id,
+          type: "reference",
+          position,
+          data: { ...initialData("reference"), ...data },
+        };
+        set({ nodes: [...get().nodes, node] });
+        return id;
+      },
+      loadGraph: (doc, { origin }) => {
+        const { nodes, edges, ids } = buildGraph(doc, origin);
+        get().addGraph(nodes, edges);
+        return ids;
+      },
+      addGraph: (nodes, edges) => {
+        set({ nodes: [...get().nodes, ...nodes], edges: [...get().edges, ...edges] });
       },
       updateNodeData: (id, data) => {
         set({

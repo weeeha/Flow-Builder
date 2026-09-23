@@ -1,16 +1,18 @@
 "use client";
 
-import type { FlowEdge, FlowNode } from "./types";
+import type { FlowEdge, FlowNode, NodeInputs, NodeKind } from "./types";
+import { rerollGroup, toOutputTexts } from "./cluster";
+import { parseHandleId } from "./handles";
+import type { DataOf } from "./node-kinds";
+import { RUNNERS, rollCluster, type Patch, type Runner } from "./runners";
 import { useFlowStore } from "./store";
 
-interface NodeInputs {
-  texts: string[];
-  images: string[];
-  videos: string[];
-  audios: string[];
-}
-
-function gatherInputs(
+/**
+ * Collects what is wired into a node, bucketed by the type of the source handle
+ * each edge leaves from. A text edge carries the source's named port text when the
+ * handle has a port, and its plain `outputText` otherwise.
+ */
+export function gatherInputs(
   nodeId: string,
   nodes: FlowNode[],
   edges: FlowEdge[]
@@ -18,13 +20,21 @@ function gatherInputs(
   const inputs: NodeInputs = { texts: [], images: [], videos: [], audios: [] };
   for (const edge of edges.filter((e) => e.target === nodeId)) {
     const source = nodes.find((n) => n.id === edge.source);
-    if (!source) continue;
+    const handle = parseHandleId(edge.sourceHandle);
+    if (!source || !handle) continue;
+    if (handle.type === "text") {
+      const text = handle.port
+        ? source.data.outputTexts?.[handle.port]
+        : source.data.outputText;
+      if (text) inputs.texts.push(text);
+      continue;
+    }
     const data = source.data as Record<string, unknown>;
     const url = data.outputUrl as string | undefined;
     if (!url) continue;
-    if (source.type === "image") inputs.images.push(url);
-    else if (source.type === "video") inputs.videos.push(url);
-    else if (source.type === "tts") inputs.audios.push(url);
+    if (handle.type === "image") inputs.images.push(url);
+    else if (handle.type === "video") inputs.videos.push(url);
+    else inputs.audios.push(url);
   }
   return inputs;
 }
@@ -50,48 +60,51 @@ function topologicalSort(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   return result;
 }
 
-async function runNode(node: FlowNode, inputs: NodeInputs): Promise<string> {
-  const endpoint =
-    node.type === "image"
-      ? "/api/generate/image"
-      : node.type === "video"
-      ? "/api/generate/video"
-      : node.type === "tts"
-      ? "/api/generate/speech"
-      : null;
-
-  if (!endpoint) {
-    if (node.type === "composition") {
-      return inputs.videos[0] ?? "";
-    }
-    throw new Error(`No runner for node type ${node.type}`);
-  }
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      data: node.data,
-      inputs,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
-  }
-  const json = (await res.json()) as { url: string };
-  return json.url;
+/**
+ * Write a runner's patch into a node. The node is read again first: the function
+ * form merges into whatever changed while the run was in flight, and a node
+ * deleted or replaced meanwhile is left alone.
+ */
+function applyPatch<K extends NodeKind>(nodeId: string, kind: K, patch: Patch<K>) {
+  const { nodes, updateNodeData } = useFlowStore.getState();
+  const fresh = nodes.find((n) => n.id === nodeId);
+  if (fresh?.type !== kind) return;
+  const data = fresh.data as DataOf<K>;
+  updateNodeData(nodeId, typeof patch === "function" ? patch(data) : patch);
 }
 
 export async function runSingleNode(nodeId: string) {
-  const { nodes, edges, setNodeStatus, updateNodeData } = useFlowStore.getState();
+  const { nodes, edges, setNodeStatus } = useFlowStore.getState();
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return;
   setNodeStatus(nodeId, "running");
   try {
-    const inputs = gatherInputs(nodeId, nodes, edges);
-    const url = await runNode(node, inputs);
-    updateNodeData(nodeId, { outputUrl: url, videoUrl: url });
+    // TypeScript cannot correlate node.type with node.data through a record lookup.
+    const run = RUNNERS[node.type] as Runner<NodeKind>;
+    const patch = await run({ data: node.data, inputs: gatherInputs(nodeId, nodes, edges) });
+    applyPatch(nodeId, node.type, patch);
+    setNodeStatus(nodeId, "done");
+  } catch (err) {
+    setNodeStatus(nodeId, "error", (err as Error).message);
+  }
+}
+
+/**
+ * Re-roll one group of a cluster node. The roll is fetched the same way Run
+ * fetches it; only that group's unpinned chips take from it.
+ */
+export async function rerollClusterGroup(nodeId: string, groupId: string) {
+  const { nodes, edges, setNodeStatus } = useFlowStore.getState();
+  const node = nodes.find((n) => n.id === nodeId);
+  if (node?.type !== "cluster") return;
+  setNodeStatus(nodeId, "running");
+  try {
+    const roll = await rollCluster(node.data, gatherInputs(nodeId, nodes, edges));
+    applyPatch(nodeId, "cluster", (fresh) => ({
+      groups: rerollGroup(fresh.groups, roll.groups, fresh.pinned, groupId),
+      outputTexts: toOutputTexts(fresh.pinned),
+      stub: roll.stub,
+    }));
     setNodeStatus(nodeId, "done");
   } catch (err) {
     setNodeStatus(nodeId, "error", (err as Error).message);
