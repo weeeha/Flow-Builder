@@ -1,17 +1,11 @@
 "use client";
 
-import type { ClusterGroup, FlowEdge, FlowNode, PinnedSuggestion } from "./types";
-import { rerollGroup, rerollGroups, toOutputTexts } from "./cluster";
+import type { FlowEdge, FlowNode, NodeInputs, NodeKind } from "./types";
+import { rerollGroup, toOutputTexts } from "./cluster";
 import { parseHandleId } from "./handles";
-import { effectivePrompt } from "./prompt";
+import type { DataOf } from "./node-kinds";
+import { RUNNERS, rollCluster, type Patch, type Runner } from "./runners";
 import { useFlowStore } from "./store";
-
-interface NodeInputs {
-  texts: string[];
-  images: string[];
-  videos: string[];
-  audios: string[];
-}
 
 /**
  * Collects what is wired into a node, bucketed by the type of the source handle
@@ -66,107 +60,29 @@ function topologicalSort(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   return result;
 }
 
-type ClusterRoll = { groups: ClusterGroup[]; stub: boolean };
-type ClusterNode = Extract<FlowNode, { type: "cluster" }>;
-
-type RunResult = { kind: "url"; url: string } | ({ kind: "cluster" } & ClusterRoll);
-
 /**
- * One roll for a cluster node: a POST to the cluster route, which answers from
- * the local fixture when no LLM key is set. Wired text is folded into
- * data.prompt and texts goes out empty, as for the other routes.
+ * Write a runner's patch into a node. The node is read again first: the function
+ * form merges into whatever changed while the run was in flight, and a node
+ * deleted or replaced meanwhile is left alone.
  */
-async function rollCluster(node: ClusterNode, inputs: NodeInputs): Promise<ClusterRoll> {
-  const prompt = effectivePrompt(inputs.texts, node.data.prompt);
-  if (!prompt) {
-    throw new Error("Prompt is empty");
-  }
-  const res = await fetch("/api/generate/cluster", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      data: { ...node.data, prompt },
-      inputs: { ...inputs, texts: [] },
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
-  }
-  return (await res.json()) as ClusterRoll;
-}
-
-/**
- * Write a roll into a cluster node. Reads the node again first: a chip can be
- * pinned while the roll is in flight, and pins win.
- */
-function applyClusterRoll(
-  nodeId: string,
-  roll: ClusterRoll,
-  merge: (current: ClusterGroup[], fresh: ClusterGroup[], pinned: PinnedSuggestion[]) => ClusterGroup[]
-) {
+function applyPatch<K extends NodeKind>(nodeId: string, kind: K, patch: Patch<K>) {
   const { nodes, updateNodeData } = useFlowStore.getState();
   const fresh = nodes.find((n) => n.id === nodeId);
-  if (fresh?.type !== "cluster") return;
-  updateNodeData(nodeId, {
-    groups: merge(fresh.data.groups, roll.groups, fresh.data.pinned),
-    outputTexts: toOutputTexts(fresh.data.pinned),
-    stub: roll.stub,
-  });
-}
-
-async function runNode(node: FlowNode, inputs: NodeInputs): Promise<RunResult> {
-  if (node.type === "cluster") {
-    return { kind: "cluster", ...(await rollCluster(node, inputs)) };
-  }
-
-  const endpoint =
-    node.type === "image"
-      ? "/api/generate/image"
-      : node.type === "video"
-      ? "/api/generate/video"
-      : node.type === "tts"
-      ? "/api/generate/speech"
-      : null;
-
-  if (!endpoint) {
-    if (node.type === "composition") {
-      return { kind: "url", url: inputs.videos[0] ?? "" };
-    }
-    throw new Error(`No runner for node type ${node.type}`);
-  }
-
-  // The routes each join inputs.texts into the prompt themselves. Wired text is
-  // folded into data.prompt here instead, so texts goes out empty or it lands twice.
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      data: { ...node.data, prompt: effectivePrompt(inputs.texts, node.data.prompt) },
-      inputs: { ...inputs, texts: [] },
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
-  }
-  const json = (await res.json()) as { url: string };
-  return { kind: "url", url: json.url };
+  if (fresh?.type !== kind) return;
+  const data = fresh.data as DataOf<K>;
+  updateNodeData(nodeId, typeof patch === "function" ? patch(data) : patch);
 }
 
 export async function runSingleNode(nodeId: string) {
-  const { nodes, edges, setNodeStatus, updateNodeData } = useFlowStore.getState();
+  const { nodes, edges, setNodeStatus } = useFlowStore.getState();
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return;
   setNodeStatus(nodeId, "running");
   try {
-    const inputs = gatherInputs(nodeId, nodes, edges);
-    const result = await runNode(node, inputs);
-    if (result.kind === "cluster") {
-      applyClusterRoll(nodeId, result, rerollGroups);
-    } else {
-      updateNodeData(nodeId, { outputUrl: result.url, videoUrl: result.url });
-    }
+    // TypeScript cannot correlate node.type with node.data through a record lookup.
+    const run = RUNNERS[node.type] as Runner<NodeKind>;
+    const patch = await run({ data: node.data, inputs: gatherInputs(nodeId, nodes, edges) });
+    applyPatch(nodeId, node.type, patch);
     setNodeStatus(nodeId, "done");
   } catch (err) {
     setNodeStatus(nodeId, "error", (err as Error).message);
@@ -183,10 +99,12 @@ export async function rerollClusterGroup(nodeId: string, groupId: string) {
   if (node?.type !== "cluster") return;
   setNodeStatus(nodeId, "running");
   try {
-    const roll = await rollCluster(node, gatherInputs(nodeId, nodes, edges));
-    applyClusterRoll(nodeId, roll, (current, fresh, pinned) =>
-      rerollGroup(current, fresh, pinned, groupId)
-    );
+    const roll = await rollCluster(node.data, gatherInputs(nodeId, nodes, edges));
+    applyPatch(nodeId, "cluster", (fresh) => ({
+      groups: rerollGroup(fresh.groups, roll.groups, fresh.pinned, groupId),
+      outputTexts: toOutputTexts(fresh.pinned),
+      stub: roll.stub,
+    }));
     setNodeStatus(nodeId, "done");
   } catch (err) {
     setNodeStatus(nodeId, "error", (err as Error).message);

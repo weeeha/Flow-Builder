@@ -6,6 +6,14 @@ export type NodeStatus = "idle" | "running" | "done" | "error";
 
 export type NodeKind = "image" | "video" | "tts" | "composition" | "cluster";
 
+/** What is wired into a node, bucketed by the type of the source handle. */
+export interface NodeInputs {
+  texts: string[];
+  images: string[];
+  videos: string[];
+  audios: string[];
+}
+
 /** Which backend a video model is served from. */
 export type VideoProvider = "fal" | "runway";
 

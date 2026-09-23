@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assignIds } from "../cluster";
-import { rerollClusterGroup } from "../executor";
+import { rerollClusterGroup, runAll, runSingleNode } from "../executor";
+import { initialData } from "../node-kinds";
 import { useFlowStore } from "../store";
 import fixture from "../stubs/cluster.json";
 import type { FlowNode } from "../types";
@@ -8,7 +9,7 @@ import type { FlowNode } from "../types";
 import { POST } from "@/app/api/generate/cluster/route";
 
 // The executor's fetch lands on the real route handler, in stub mode (no key set).
-const fetchSpy = vi.fn(async (url: string, init?: RequestInit) =>
+const fetchSpy = vi.fn(async (url: string, init?: RequestInit): Promise<Response> =>
   POST(new Request(`http://localhost${url}`, init))
 );
 
@@ -71,5 +72,55 @@ describe("rerollClusterGroup", () => {
     expect(clusterNode().data.status).toBe("error");
     expect(clusterNode().data.error).toBe("Prompt is empty");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("runSingleNode", () => {
+  it("writes a url result onto the node and marks it done", async () => {
+    fetchSpy.mockImplementationOnce(async () => Response.json({ url: "https://example.test/out.png" }));
+    const image: FlowNode = {
+      id: "image-1",
+      type: "image",
+      position: { x: 0, y: 0 },
+      data: { ...initialData("image"), prompt: "a lighthouse" },
+    };
+    useFlowStore.setState({ nodes: [image], edges: [] });
+
+    await runSingleNode("image-1");
+
+    const after = useFlowStore.getState().nodes[0].data;
+    expect(after.status).toBe("done");
+    expect(after.outputUrl).toBe("https://example.test/out.png");
+    expect(after.videoUrl).toBe("https://example.test/out.png");
+  });
+});
+
+describe("runAll", () => {
+  it("stops at the first error and leaves later nodes idle", async () => {
+    fetchSpy.mockImplementationOnce(async () => new Response("nope", { status: 500 }));
+    const image: FlowNode = {
+      id: "image-1",
+      type: "image",
+      position: { x: 0, y: 0 },
+      data: { ...initialData("image"), prompt: "a lighthouse" },
+    };
+    const video: FlowNode = {
+      id: "video-1",
+      type: "video",
+      position: { x: 400, y: 0 },
+      data: { ...initialData("video"), prompt: "push in" },
+    };
+    useFlowStore.setState({
+      nodes: [image, video],
+      edges: [{ id: "e1", source: "image-1", target: "video-1", sourceHandle: "image-1:image", targetHandle: "video-1:image" }],
+    });
+
+    await runAll();
+
+    const [a, b] = useFlowStore.getState().nodes;
+    expect(a.data.status).toBe("error");
+    expect(a.data.error).toBe("500 nope");
+    expect(b.data.status).toBe("idle");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
