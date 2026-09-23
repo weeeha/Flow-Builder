@@ -13,7 +13,7 @@ import {
 import { MODEL_KINDS, layoutGraph, toNodeData, type FlowDoc, type ModelKind } from "./flow-doc";
 import { handleId, parseHandleId } from "./handles";
 import { initialData } from "./node-kinds";
-import type { FlowEdge, FlowNode, NodeKind, NodeStatus } from "./types";
+import type { FlowEdge, FlowNode, NodeKind, NodeStatus, ReferenceNodeData } from "./types";
 
 interface FlowState {
   nodes: FlowNode[];
@@ -22,6 +22,11 @@ interface FlowState {
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
   addNode: (kind: NodeKind, position: { x: number; y: number }) => string;
+  /**
+   * Place a reference node for a dropped clip. Kept apart from addNode: only the
+   * drop pipeline builds one, never the toolbar.
+   */
+  addReference: (position: { x: number; y: number }, data: Partial<ReferenceNodeData>) => string;
   /**
    * Add a graph document beside what is on the canvas, laid out from `origin`.
    * Returns the new id of each document node, keyed by its document id.
@@ -64,6 +69,17 @@ export const useFlowStore = create<FlowState>()(
           data: initialData(kind),
         } as FlowNode;
         set({ nodes: [...get().nodes, newNode] });
+        return id;
+      },
+      addReference: (position, data) => {
+        const id = nextId("reference");
+        const node: FlowNode = {
+          id,
+          type: "reference",
+          position,
+          data: { ...initialData("reference"), ...data },
+        };
+        set({ nodes: [...get().nodes, node] });
         return id;
       },
       loadGraph: (doc, { origin }) => {
