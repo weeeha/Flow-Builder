@@ -117,14 +117,14 @@ try {
     const bytes = Uint8Array.from(atob(${JSON.stringify(CLIP_B64)}), (c) => c.charCodeAt(0));
     window.__clip = new File([bytes], "clip.mp4", { type: "video/mp4" });
   })()`);
-  // Onto empty canvas just right of the card already there: a drop lands where
-  // it is let go, so dropping onto a card would overlap it by design.
+  // Right onto the card already there: the reference and the graph must slide
+  // clear of it (Nick's 8A), which "no two cards overlap" below checks.
   const fire = (type) => evaluate(`(() => {
     const dt = new DataTransfer();
     dt.items.add(window.__clip);
     const card = document.querySelector('[data-id="image-a"]').getBoundingClientRect();
     const target = document.querySelector(".react-flow__pane");
-    target.dispatchEvent(new DragEvent(${JSON.stringify(type)}, { bubbles: true, cancelable: true, clientX: card.right + 60, clientY: card.top, dataTransfer: dt }));
+    target.dispatchEvent(new DragEvent(${JSON.stringify(type)}, { bubbles: true, cancelable: true, clientX: card.left + card.width / 2, clientY: card.top + card.height / 2, dataTransfer: dt }));
   })()`);
 
   // Record what the analysis is sent: the node keeps only 3 of the 8 frames.

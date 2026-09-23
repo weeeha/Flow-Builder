@@ -1,17 +1,44 @@
 "use client";
 
+import { clearSpot, type Box } from "./cluster";
 import type { AnalyzeClipResponse } from "./clip-schema";
-import { COLUMN_GAP } from "./flow-doc";
+import { COLUMN_GAP, layoutGraph, type FlowDoc } from "./flow-doc";
 import { pickThumbnails, sampleFrames, type SampledClip } from "./frames";
 
 /** Frames kept on the reference node for its strip. */
 const KEPT_FRAMES = 3;
 import { useFlowStore } from "./store";
+import type { FlowNode } from "./types";
+
+/** Sizes to plan around before React Flow has measured a card. */
+const REFERENCE_SIZE = { width: 320, height: 260 };
+const UNMEASURED_SIZE = { width: 360, height: 360 };
+/** The widest and tallest card a graph can hold, for its last column and row. */
+const LARGEST_CARD = { width: 420, height: 360 };
+
+function boxOf(node: FlowNode): Box {
+  return {
+    ...node.position,
+    width: node.measured?.width ?? UNMEASURED_SIZE.width,
+    height: node.measured?.height ?? UNMEASURED_SIZE.height,
+  };
+}
+
+/** The area a laid-out graph covers, from its origin. */
+function footprint(doc: FlowDoc): { width: number; height: number } {
+  const at = Object.values(layoutGraph(doc, { x: 0, y: 0 }));
+  return {
+    width: Math.max(0, ...at.map((p) => p.x)) + LARGEST_CARD.width,
+    height: Math.max(0, ...at.map((p) => p.y)) + LARGEST_CARD.height,
+  };
+}
 
 /**
  * A dropped clip, end to end: a reference node at the drop point, frames
  * sampled from the clip, the analyze route, and the graph it proposes landed
- * one column to the right. Every failure shows on the reference node.
+ * one column to the right. Both slide down their column past any card already
+ * there (as the cluster's branches do), and nothing already there moves. Every
+ * failure shows on the reference node.
  *
  * `sample` is injectable because jsdom cannot decode video; the page always
  * uses the real sampler.
@@ -23,7 +50,8 @@ export async function readClip(
 ): Promise<string> {
   const { addReference, updateNodeData, setNodeStatus, loadGraph } = useFlowStore.getState();
   const clipUrl = URL.createObjectURL(file);
-  const id = addReference(at, { clipUrl, outputUrl: clipUrl });
+  const spot = clearSpot({ ...at, ...REFERENCE_SIZE }, useFlowStore.getState().nodes.map(boxOf));
+  const id = addReference(spot, { clipUrl, outputUrl: clipUrl });
   setNodeStatus(id, "running");
 
   try {
@@ -40,7 +68,9 @@ export async function readClip(
       throw new Error(body.error ?? `Analysis failed (${res.status})`);
     }
 
-    loadGraph(body.graph, { origin: { x: at.x + COLUMN_GAP, y: at.y } });
+    const others = useFlowStore.getState().nodes.filter((n) => n.id !== id).map(boxOf);
+    const origin = clearSpot({ x: spot.x + COLUMN_GAP, y: spot.y, ...footprint(body.graph) }, others);
+    loadGraph(body.graph, { origin });
     updateNodeData(id, { summary: body.breakdown.summary, path: body.path });
     setNodeStatus(id, "done");
   } catch (err) {

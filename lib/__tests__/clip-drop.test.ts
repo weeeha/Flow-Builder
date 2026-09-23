@@ -66,6 +66,26 @@ describe("readClip", () => {
     expect(sent).toEqual(sampled);
   });
 
+  it("slides the reference card below a card it was dropped onto", async () => {
+    const existing = useFlowStore.getState().addNode("image", { x: 90, y: 180 });
+    await readClip(file, { x: 100, y: 200 }, { sample });
+    const ref = reference().position;
+    expect(ref.x).toBe(100);
+    // The image card has no measured size in jsdom, so its 360px fallback height counts.
+    expect(ref.y).toBeGreaterThanOrEqual(180 + 360);
+    expect(useFlowStore.getState().nodes.find((n) => n.id === existing)?.position).toEqual({ x: 90, y: 180 });
+  });
+
+  it("slides the graph below a card sitting where it would land", async () => {
+    const blocker = useFlowStore.getState().addNode("video", { x: 100 + 2 * COLUMN_GAP, y: 250 });
+    await readClip(file, { x: 100, y: 200 }, { sample });
+    const graph = useFlowStore.getState().nodes.filter((n) => n.type !== "reference" && n.id !== blocker);
+    const top = Math.min(...graph.map((n) => n.position.y));
+    // The graph's first row starts below the blocker instead of at the drop's y.
+    expect(top).toBeGreaterThanOrEqual(250 + 360);
+    expect(Math.min(...graph.map((n) => n.position.x))).toBe(100 + COLUMN_GAP);
+  });
+
   it("shows a failed read on the reference node and lands no graph", async () => {
     sample.mockRejectedValueOnce(new Error("Could not read this file as a video"));
     await readClip(file, { x: 0, y: 0 }, { sample });
