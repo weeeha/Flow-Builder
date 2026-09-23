@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readClip } from "../clip-drop";
+import { CLIP_LOG_KEY, clipLogCounts } from "../clip-log";
 import { COLUMN_GAP } from "../flow-doc";
 import type { SampledClip } from "../frames";
 import { useFlowStore } from "../store";
@@ -13,7 +14,11 @@ const sampled: SampledClip = {
   duration: 6,
   hasAudio: "unknown",
 };
-const sample = vi.fn(async () => sampled);
+// Reports each frame as it lands, the way sampleFrames does.
+const sample = vi.fn(async (_file: File, _n?: number, onFrame?: (frame: SampledClip["frames"][number], i: number) => void) => {
+  sampled.frames.forEach((frame, i) => onFrame?.(frame, i));
+  return sampled;
+});
 const route = vi.fn(async (url: string, init?: RequestInit): Promise<Response> =>
   POST(new Request(`http://localhost${url}`, init))
 );
@@ -26,6 +31,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", route);
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:http://localhost/dusk" }));
   sample.mockClear();
+  localStorage.removeItem(CLIP_LOG_KEY);
   route.mockClear();
   useFlowStore.setState({ nodes: [], edges: [] });
 });
@@ -61,7 +67,8 @@ describe("readClip", () => {
     const image = nodes.find((n) => n.type === "image" && n.id !== existing)!;
     expect(image.position).toEqual({ x: 100 + COLUMN_GAP, y: 200 });
 
-    expect(sample).toHaveBeenCalledWith(file);
+    expect(sample).toHaveBeenCalledWith(file, 8, expect.any(Function));
+    expect(clipLogCounts().stub).toBe(1);
     const sent = JSON.parse(route.mock.calls[0][1]!.body as string);
     expect(sent).toEqual(sampled);
   });
@@ -84,6 +91,31 @@ describe("readClip", () => {
     // The graph's first row starts below the blocker instead of at the drop's y.
     expect(top).toBeGreaterThanOrEqual(250 + 360);
     expect(Math.min(...graph.map((n) => n.position.x))).toBe(100 + COLUMN_GAP);
+  });
+
+  it("counts sampled frames and fills the kept thumbnails as each one lands", async () => {
+    const steps: { sampled?: number; frames: number }[] = [];
+    const stop = useFlowStore.subscribe((state) => {
+      const ref = state.nodes.find((n) => n.type === "reference");
+      if (ref?.type === "reference" && ref.data.status === "running") {
+        steps.push({ sampled: ref.data.sampled, frames: ref.data.frames.length });
+      }
+    });
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    stop();
+    const counts = [...new Set(steps.map((s) => s.sampled))];
+    expect(counts).toEqual([undefined, 1, 2, 3, 4, 5, 6, 7, 8]);
+    // Frames 0, 4 and 7 are the kept ones: the strip grows at 1, 5 and 8.
+    expect(steps.find((s) => s.sampled === 1)?.frames).toBe(1);
+    expect(steps.find((s) => s.sampled === 4)?.frames).toBe(1);
+    expect(steps.find((s) => s.sampled === 5)?.frames).toBe(2);
+    expect(steps.find((s) => s.sampled === 8)?.frames).toBe(3);
+  });
+
+  it("logs nothing when the read fails", async () => {
+    sample.mockRejectedValueOnce(new Error("nope"));
+    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    expect(localStorage.getItem(CLIP_LOG_KEY)).toBeNull();
   });
 
   it("shows a failed read on the reference node and lands no graph", async () => {

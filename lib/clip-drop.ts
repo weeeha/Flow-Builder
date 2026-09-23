@@ -3,7 +3,8 @@
 import { clearSpot, type Box } from "./cluster";
 import type { AnalyzeClipResponse } from "./clip-schema";
 import { COLUMN_GAP, layoutGraph, type FlowDoc } from "./flow-doc";
-import { pickThumbnails, sampleFrames, type SampledClip } from "./frames";
+import { recordClipRun } from "./clip-log";
+import { FRAME_COUNT, pickThumbnails, sampleFrames, type SampledClip, type SampledFrame } from "./frames";
 
 /** Frames kept on the reference node for its strip. */
 const KEPT_FRAMES = 3;
@@ -81,7 +82,7 @@ export async function readClip(
     revealMs = REVEAL_MS,
     reducedMotion = prefersReducedMotion(),
   }: {
-    sample?: (file: File) => Promise<SampledClip>;
+    sample?: (file: File, n: number, onFrame: (frame: SampledFrame, index: number) => void) => Promise<SampledClip>;
     revealMs?: number;
     reducedMotion?: boolean;
   } = {}
@@ -93,7 +94,16 @@ export async function readClip(
   setNodeStatus(id, "running");
 
   try {
-    const clip = await sample(file);
+    // Which of the frames the strip keeps is known before any arrive, so each
+    // kept one shows as soon as it is read.
+    const keptIndexes = new Set(
+      pickThumbnails(Array.from({ length: FRAME_COUNT }, (_, i) => ({ t: i, dataUrl: "" })), KEPT_FRAMES).map((f) => f.t)
+    );
+    const strip: SampledFrame[] = [];
+    const clip = await sample(file, FRAME_COUNT, (frame, i) => {
+      if (keptIndexes.has(i)) strip.push(frame);
+      updateNodeData(id, { sampled: i + 1, frames: [...strip] });
+    });
     updateNodeData(id, { ...clip, frames: pickThumbnails(clip.frames, KEPT_FRAMES) });
 
     const res = await fetch("/api/analyze/clip", {
@@ -110,7 +120,8 @@ export async function readClip(
     const origin = clearSpot({ x: spot.x + COLUMN_GAP, y: spot.y, ...footprint(body.graph) }, others);
     const { nodes, edges } = buildGraph(body.graph, origin);
     await reveal(nodes, edges, reducedMotion ? 0 : revealMs);
-    updateNodeData(id, { summary: body.breakdown.summary, path: body.path });
+    updateNodeData(id, { summary: body.breakdown.summary, path: body.path, sampled: undefined });
+    if (body.path) recordClipRun({ path: body.path, stub: Boolean(body.stub) });
     setNodeStatus(id, "done");
   } catch (err) {
     setNodeStatus(id, "error", (err as Error).message);

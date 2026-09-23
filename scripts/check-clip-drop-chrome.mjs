@@ -1,7 +1,8 @@
 // Usage: pnpm dev, then `node scripts/check-clip-drop-chrome.mjs` (env: APP_URL, CDP_PORT, OUT, CLIP).
 // Build 11's thin slice end to end in stub mode: a video dropped on the canvas
 // shows the overlay, samples 8 real frames for the analysis (keeping 3 on a
-// reference node), and the stub
+// reference node that counts them in and fills its strip as they land), logs
+// the run, and the stub
 // graph lands beside it, wired, without moving what was already there; Run all
 // then takes every node to done. CLIP defaults to a 6s test pattern with a tone,
 // made with ffmpeg, so every sampled frame differs and the clip has audio.
@@ -144,6 +145,17 @@ try {
       }
     }).observe(document.querySelector(".react-flow__nodes"), { childList: true });
   })()`);
+  // Every status line and strip size the reference card shows, polled while it reads.
+  await evaluate(`(() => {
+    window.__card = [];
+    window.__cardPoll = setInterval(() => {
+      const card = document.querySelector(".react-flow__node-reference");
+      if (!card) return;
+      const entry = { line: card.querySelector("p[aria-live]")?.textContent ?? "", strip: card.querySelectorAll('img[alt^="Frame at"]').length };
+      const last = window.__card.at(-1);
+      if (!last || last.line !== entry.line || last.strip !== entry.strip) window.__card.push(entry);
+    }, 20);
+  })()`);
   await fire("dragover");
   await sleep(150);
   const overlay = await evaluate("[...document.querySelectorAll('span')].some(s => s.textContent === 'Drop to read the clip')");
@@ -177,6 +189,19 @@ try {
   const gaps = arrivals.slice(1).map((a, i) => Math.round(a.at - arrivals[i].at));
   check("the graph lands one card at a time, about 150ms apart", arrivals.length === 4 && gaps.every((g) => g >= 110 && g < 400),
     `${arrivals.map((a) => a.type).join(" → ")} · gaps ${gaps.join(", ")}ms`);
+
+  await evaluate("clearInterval(window.__cardPoll)");
+  const card = await evaluate("window.__card");
+  const lines = card.map((c) => c.line);
+  check("the card counts frames while sampling", lines.some((l) => /^Sampling frames [1-7]\/8$/.test(l)), lines.filter((l) => l.startsWith("Sampling")).join(", "));
+  const firstSummary = card.findIndex((c) => c.line === "1 shot, push-in, dusk");
+  check("the strip fills before the summary appears", firstSummary > 0 && card.slice(0, firstSummary).some((c) => c.strip > 0 && c.strip < 3), card.map((c) => `${c.strip}:${c.line || "-"}`).join(" | "));
+  check("it ends with 3 frames, the summary and the path label", await evaluate(`(() => {
+    const card = document.querySelector(".react-flow__node-reference");
+    return card.querySelectorAll('img[alt^="Frame at"]').length === 3 && card.querySelector("p[aria-live]").textContent === "1 shot, push-in, dusk" && card.textContent.includes("first pass");
+  })()`));
+  const log = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-clip-log") ?? "[]")`);
+  check("the run is logged as a stub first pass", log.length === 1 && log[0].path === "first pass" && log[0].stub === true, JSON.stringify(log));
 
   const state = await stored();
   const kinds = state.nodes.map((n) => n.type).sort().join(",");

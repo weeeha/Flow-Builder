@@ -100,6 +100,8 @@ export interface ReferenceNodeData extends BaseNodeData {
   /** True after a reload lost a session-only clip. */
   clipMissing?: boolean;
   frames: { t: number; dataUrl: string }[];
+  /** How many frames sampling has read so far; set while it runs. */
+  sampled?: number;
   duration: number;
   hasAudio: boolean | "unknown";
   /** "1 shot, push-in, dusk", written by the model. */

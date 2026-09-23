@@ -16,6 +16,9 @@ export interface SampledClip {
   hasAudio: boolean | "unknown";
 }
 
+/** Frames sampled per clip, all of which go to the analysis. */
+export const FRAME_COUNT = 8;
+
 /** Seeking to exactly `duration` can land past the last decodable frame. */
 const END_MARGIN = 0.05;
 const FRAME_WIDTH = 512;
@@ -78,8 +81,8 @@ const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() 
  */
 export async function sampleFrames(
   file: Blob,
-  n = 8,
-  onFrame?: (done: number, total: number) => void
+  n = FRAME_COUNT,
+  onFrame?: (frame: SampledFrame, index: number) => void
 ): Promise<SampledClip> {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -106,8 +109,9 @@ export async function sampleFrames(
       await seeked;
       await nextFrame();
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push({ t, dataUrl: canvas.toDataURL("image/jpeg", JPEG_QUALITY) });
-      onFrame?.(frames.length, n);
+      const frame = { t, dataUrl: canvas.toDataURL("image/jpeg", JPEG_QUALITY) };
+      frames.push(frame);
+      onFrame?.(frame, frames.length - 1);
     }
 
     return {
