@@ -2,7 +2,10 @@
 
 import type { AnalyzeClipResponse } from "./clip-schema";
 import { COLUMN_GAP } from "./flow-doc";
-import { sampleFrames, type SampledClip } from "./frames";
+import { pickThumbnails, sampleFrames, type SampledClip } from "./frames";
+
+/** Frames kept on the reference node for its strip. */
+const KEPT_FRAMES = 3;
 import { useFlowStore } from "./store";
 
 /**
@@ -25,7 +28,7 @@ export async function readClip(
 
   try {
     const clip = await deps.sample(file);
-    updateNodeData(id, { ...clip });
+    updateNodeData(id, { ...clip, frames: pickThumbnails(clip.frames, KEPT_FRAMES) });
 
     const res = await fetch("/api/analyze/clip", {
       method: "POST",

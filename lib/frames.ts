@@ -29,6 +29,16 @@ export function sampleTimes(duration: number, n: number): number[] {
 }
 
 /**
+ * The frames worth keeping on the node, spread from first to last. All eight go
+ * to the analysis; only these persist, since every saved frame lands in
+ * localStorage (about 13KB each) and several clips would reach its limit.
+ */
+export function pickThumbnails(frames: SampledFrame[], n: number): SampledFrame[] {
+  if (frames.length <= n) return frames;
+  return Array.from({ length: n }, (_, i) => frames[Math.round((i * (frames.length - 1)) / (n - 1))]);
+}
+
+/**
  * Whether the clip has sound. No property is standard on both engines: Safari
  * lists tracks, Chrome counts decoded bytes. Zero decoded bytes proves nothing,
  * since a muted seek may never decode audio, so it reads as unknown.

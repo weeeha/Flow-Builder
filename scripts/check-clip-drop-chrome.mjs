@@ -1,6 +1,7 @@
 // Usage: pnpm dev, then `node scripts/check-clip-drop-chrome.mjs` (env: APP_URL, CDP_PORT, OUT, CLIP).
 // Build 11's thin slice end to end in stub mode: a video dropped on the canvas
-// shows the overlay, lands a reference node with 8 real frames, and the stub
+// shows the overlay, samples 8 real frames for the analysis (keeping 3 on a
+// reference node), and the stub
 // graph lands beside it, wired, without moving what was already there; Run all
 // then takes every node to done. CLIP defaults to a 6s test pattern with a tone,
 // made with ffmpeg, so every sampled frame differs and the clip has audio.
@@ -126,6 +127,14 @@ try {
     target.dispatchEvent(new DragEvent(${JSON.stringify(type)}, { bubbles: true, cancelable: true, clientX: card.right + 60, clientY: card.top, dataTransfer: dt }));
   })()`);
 
+  // Record what the analysis is sent: the node keeps only 3 of the 8 frames.
+  await evaluate(`(() => {
+    const real = window.fetch;
+    window.fetch = (url, init) => {
+      if (String(url).includes("/api/analyze/clip")) window.__sent = JSON.parse(init.body);
+      return real(url, init);
+    };
+  })()`);
   await fire("dragover");
   await sleep(150);
   const overlay = await evaluate("[...document.querySelectorAll('span')].some(s => s.textContent === 'Drop to read the clip')");
@@ -143,12 +152,14 @@ try {
   }
   check("a reference node lands and finishes reading", ref?.data.status === "done", ref ? `${ref.data.status}${ref.data.error ? " · " + ref.data.error : ""}` : "none");
 
-  const frames = ref?.data.frames ?? [];
+  const frames = (await evaluate("window.__sent"))?.frames ?? [];
   const distinct = new Set(frames.map((f) => f.dataUrl)).size;
-  check("it holds 8 sampled frames, first at 0 and last near the end", frames.length === 8 && frames[0].t === 0 && frames[7].t > 5.9 && frames[7].t < 6,
+  check("the analysis gets 8 sampled frames, first at 0 and last near the end", frames.length === 8 && frames[0].t === 0 && frames[7].t > 5.9 && frames[7].t < 6,
     frames.map((f) => f.t.toFixed(2)).join(" "));
   check("every frame is a real, different JPEG", distinct === 8 && frames.every((f) => f.dataUrl.startsWith("data:image/jpeg;base64,") && f.dataUrl.length > 5000),
     `${distinct} distinct, ${frames.map((f) => Math.round(f.dataUrl.length / 1024) + "KB").join(" ")}`);
+  const kept = ref?.data.frames ?? [];
+  check("the node keeps the first, middle and last of them", JSON.stringify(kept) === JSON.stringify([frames[0], frames[4], frames[7]]), kept.map((f) => f.t.toFixed(2)).join(" "));
   check("it read the clip's duration", Math.abs((ref?.data.duration ?? 0) - 6) < 0.1, String(ref?.data.duration));
   console.log(`INFO Chrome's audio guess for a clip with a tone: ${JSON.stringify(ref?.data.hasAudio)}`);
   check("it carries the stub's summary and path", ref?.data.summary === "1 shot, push-in, dusk" && ref?.data.path === "first pass", `${ref?.data.summary} · ${ref?.data.path}`);

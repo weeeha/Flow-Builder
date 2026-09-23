@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessAudio, sampleTimes } from "../frames";
+import { guessAudio, pickThumbnails, sampleTimes } from "../frames";
 
 describe("sampleTimes", () => {
   it("spreads n timestamps evenly from the first frame to just before the end", () => {
@@ -38,5 +38,17 @@ describe("guessAudio", () => {
 
   it("says unknown when the engine exposes neither", () => {
     expect(guessAudio({})).toBe("unknown");
+  });
+});
+
+describe("pickThumbnails", () => {
+  const frames = Array.from({ length: 8 }, (_, i) => ({ t: i, dataUrl: `frame-${i}` }));
+
+  it("keeps the first, middle and last of eight frames", () => {
+    expect(pickThumbnails(frames, 3).map((f) => f.t)).toEqual([0, 4, 7]);
+  });
+
+  it("keeps every frame when there are no more than asked for", () => {
+    expect(pickThumbnails(frames.slice(0, 2), 3)).toEqual(frames.slice(0, 2));
   });
 });

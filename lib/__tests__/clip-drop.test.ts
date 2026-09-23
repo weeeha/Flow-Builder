@@ -9,7 +9,7 @@ import { POST } from "@/app/api/analyze/clip/route";
 
 // jsdom cannot decode video, so the sampler is the one fake; the route is real.
 const sampled: SampledClip = {
-  frames: [{ t: 0, dataUrl: "data:image/jpeg;base64,AAAA" }],
+  frames: Array.from({ length: 8 }, (_, i) => ({ t: i * 0.85, dataUrl: `data:image/jpeg;base64,FRAME${i}` })),
   duration: 6,
   hasAudio: "unknown",
 };
@@ -46,7 +46,8 @@ describe("readClip", () => {
       status: "done",
       clipUrl: "blob:http://localhost/dusk",
       outputUrl: "blob:http://localhost/dusk",
-      frames: sampled.frames,
+      // Only three are kept on the node; all eight went to the analysis.
+      frames: [sampled.frames[0], sampled.frames[4], sampled.frames[7]],
       duration: 6,
       hasAudio: "unknown",
       summary: fixture.breakdown.summary,
