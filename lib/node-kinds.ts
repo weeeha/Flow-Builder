@@ -191,6 +191,17 @@ export const NODE_KINDS = {
     },
     initial: { prompt: "", groups: [], pinned: [], outputTexts: {} },
   },
+
+  reference: {
+    label: "Reference",
+    group: "ideate",
+    // A clip drop creates it; the toolbar never offers it.
+    palette: false,
+    inputs: [],
+    outputs: [{ type: "video" }],
+    fields: {},
+    initial: { frames: [], duration: 0, hasAudio: "unknown" },
+  },
 } satisfies { [K in NodeKind]: KindSpec<K> };
 
 export const NODE_KIND_LIST = Object.keys(NODE_KINDS) as NodeKind[];

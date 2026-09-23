@@ -89,6 +89,10 @@ export const RUNNERS = {
 
   composition: async ({ inputs }) => urlPatch(inputs.videos[0] ?? ""),
 
+  // Nothing to generate: the clip itself goes out on the video handle, for a
+  // wire drawn from it by hand.
+  reference: async ({ data }) => ({ outputUrl: data.clipUrl }),
+
   // A chip can be pinned while the roll is in flight, and pins win, so the
   // merge runs against the node as it is when the roll lands.
   cluster: async ({ data, inputs }) => {

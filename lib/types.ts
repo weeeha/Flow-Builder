@@ -4,7 +4,7 @@ export type HandleType = "text" | "image" | "video" | "audio";
 
 export type NodeStatus = "idle" | "running" | "done" | "error";
 
-export type NodeKind = "image" | "video" | "tts" | "composition" | "cluster";
+export type NodeKind = "image" | "video" | "tts" | "composition" | "cluster" | "reference";
 
 /** What is wired into a node, bucketed by the type of the source handle. */
 export interface NodeInputs {
@@ -90,12 +90,32 @@ export interface ClusterNodeData extends BaseNodeData {
   stub?: boolean;
 }
 
+/**
+ * A dropped clip and what was read from it. Built by the drop pipeline, never
+ * from the toolbar.
+ */
+export interface ReferenceNodeData extends BaseNodeData {
+  /** An object URL for this session, or a Blob URL once uploads exist. */
+  clipUrl?: string;
+  /** True after a reload lost a session-only clip. */
+  clipMissing?: boolean;
+  frames: { t: number; dataUrl: string }[];
+  duration: number;
+  hasAudio: boolean | "unknown";
+  /** "1 shot, push-in, dusk", written by the model. */
+  summary?: string;
+  path?: "first pass" | "repaired" | "fallback";
+  /** What the video output hands on; the clip itself. */
+  outputUrl?: string;
+}
+
 export type FlowNode =
   | Node<ImageNodeData, "image">
   | Node<VideoNodeData, "video">
   | Node<TTSNodeData, "tts">
   | Node<CompositionNodeData, "composition">
-  | Node<ClusterNodeData, "cluster">;
+  | Node<ClusterNodeData, "cluster">
+  | Node<ReferenceNodeData, "reference">;
 
 export type FlowEdge = Edge;
 

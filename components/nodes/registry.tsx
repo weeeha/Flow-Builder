@@ -1,10 +1,11 @@
 import type { ComponentType } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { AudioLines, ImageIcon, Layers, Sparkles, Video, type LucideIcon } from "lucide-react";
+import { AudioLines, Clapperboard, ImageIcon, Layers, Sparkles, Video, type LucideIcon } from "lucide-react";
 import type { FlowNode, NodeKind } from "@/lib/types";
 import { ClusterNode } from "./cluster-node";
 import { CompositionNode } from "./composition-node";
 import { ImageNode } from "./image-node";
+import { ReferenceNode } from "./reference-node";
 import { TTSNode } from "./tts-node";
 import { VideoNode } from "./video-node";
 
@@ -24,6 +25,7 @@ export const NODE_VIEWS = {
   tts: { icon: AudioLines, Card: TTSNode },
   composition: { icon: Layers, Card: CompositionNode },
   cluster: { icon: Sparkles, Card: ClusterNode },
+  reference: { icon: Clapperboard, Card: ReferenceNode },
 } satisfies { [K in NodeKind]: NodeView<K> };
 
 /**

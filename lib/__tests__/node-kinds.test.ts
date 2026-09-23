@@ -13,7 +13,9 @@ import {
 import { VIDEO_MODELS } from "../models";
 import type { ClusterNodeData, NodeKind } from "../types";
 
-const KINDS: NodeKind[] = ["image", "video", "tts", "composition", "cluster"];
+const KINDS: NodeKind[] = ["image", "video", "tts", "composition", "cluster", "reference"];
+/** Reference is created by a clip drop, never from the toolbar. */
+const PALETTE: NodeKind[] = ["image", "video", "tts", "composition", "cluster"];
 
 describe("NODE_KINDS", () => {
   it("covers every kind, in the order the toolbar shows them", () => {
@@ -27,6 +29,7 @@ describe("NODE_KINDS", () => {
       "Text to Speech",
       "Composition",
       "Concept Cluster",
+      "Reference",
     ]);
   });
 });
@@ -148,8 +151,8 @@ describe("optionLabel", () => {
 });
 
 describe("PALETTE_KINDS", () => {
-  it("offers every kind today, in toolbar order", () => {
-    expect(PALETTE_KINDS).toEqual(KINDS);
+  it("offers every kind but reference, in toolbar order", () => {
+    expect(PALETTE_KINDS).toEqual(PALETTE);
   });
 
   it("leaves out a kind that opts out, which is how the reference kind will stay off it", () => {
@@ -184,6 +187,12 @@ describe("shellPorts", () => {
     expect(shellPorts("composition")).toEqual([
       { side: "target", type: "video", port: undefined, top: 24 },
       { side: "target", type: "audio", port: undefined, top: 56 },
+    ]);
+  });
+
+  it("gives reference one centred video output and no inputs", () => {
+    expect(shellPorts("reference")).toEqual([
+      { side: "source", type: "video", port: undefined, top: undefined },
     ]);
   });
 

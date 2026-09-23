@@ -65,6 +65,12 @@ describe("RUNNERS", () => {
     expect(empty).toEqual({ outputUrl: "", videoUrl: "" });
   });
 
+  it("reference hands its clip to whatever is wired to it, without a request", async () => {
+    const data = { ...initialData("reference"), clipUrl: "blob:http://localhost/clip" };
+    expect(await RUNNERS.reference({ data, inputs: noInputs() })).toEqual({ outputUrl: "blob:http://localhost/clip" });
+    expect(urlRoute).not.toHaveBeenCalled();
+  });
+
   describe("cluster", () => {
     const groups = assignIds(fixture.sets[0].groups);
     const pin = { ...groups[1].suggestions[0], axis: groups[1].axis };

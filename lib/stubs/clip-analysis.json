@@ -1,0 +1,36 @@
+{
+  "breakdown": {
+    "summary": "1 shot, push-in, dusk",
+    "shots": [
+      {
+        "shotType": "wide",
+        "cameraAngle": "low angle",
+        "cameraMovement": "slow push-in",
+        "composition": "lighthouse on the right third, horizon low",
+        "subject": "a lighthouse on a rocky point",
+        "action": "the lamp turns on as the sky darkens",
+        "emotionalIntent": "quiet anticipation",
+        "visualStyleNotes": "teal and amber, soft haze",
+        "imagePrompt": "A lighthouse on a rocky point at dusk, low angle, teal sky, amber lamp, soft haze, cinematic still",
+        "videoPrompt": "Slow push-in on a lighthouse at dusk as its lamp switches on, waves below, soft haze",
+        "durationEstimateSeconds": 6,
+        "tStart": 0,
+        "tEnd": 6
+      }
+    ]
+  },
+  "graph": {
+    "version": 1,
+    "nodes": [
+      { "id": "image-1", "kind": "image", "data": { "prompt": "A lighthouse on a rocky point at dusk, low angle, teal sky, amber lamp, soft haze, cinematic still" } },
+      { "id": "video-1", "kind": "video", "data": { "prompt": "Slow push-in on a lighthouse at dusk as its lamp switches on, waves below, soft haze", "model": "seedance-2.0", "duration": 6 } },
+      { "id": "composition-1", "kind": "composition", "data": {} },
+      { "id": "tts-1", "kind": "tts", "data": { "prompt": "1 shot, push-in, dusk" } }
+    ],
+    "edges": [
+      { "source": "image-1", "sourceHandle": "image-1:image", "target": "video-1", "targetHandle": "video-1:image" },
+      { "source": "video-1", "sourceHandle": "video-1:video", "target": "composition-1", "targetHandle": "composition-1:video" },
+      { "source": "tts-1", "sourceHandle": "tts-1:audio", "target": "composition-1", "targetHandle": "composition-1:audio" }
+    ]
+  }
+}

@@ -10,6 +10,8 @@ import {
   type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
+import { MODEL_KINDS, layoutGraph, toNodeData, type FlowDoc, type ModelKind } from "./flow-doc";
+import { handleId, parseHandleId } from "./handles";
 import { initialData } from "./node-kinds";
 import type { FlowEdge, FlowNode, NodeKind, NodeStatus } from "./types";
 
@@ -20,6 +22,11 @@ interface FlowState {
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
   addNode: (kind: NodeKind, position: { x: number; y: number }) => string;
+  /**
+   * Add a graph document beside what is on the canvas, laid out from `origin`.
+   * Returns the new id of each document node, keyed by its document id.
+   */
+  loadGraph: (doc: FlowDoc, opts: { origin: { x: number; y: number } }) => Record<string, string>;
   updateNodeData: (id: string, data: Partial<FlowNode["data"]>) => void;
   setNodeStatus: (id: string, status: NodeStatus, error?: string) => void;
   deleteNode: (id: string) => void;
@@ -58,6 +65,46 @@ export const useFlowStore = create<FlowState>()(
         } as FlowNode;
         set({ nodes: [...get().nodes, newNode] });
         return id;
+      },
+      loadGraph: (doc, { origin }) => {
+        const at = layoutGraph(doc, origin);
+        const ids: Record<string, string> = {};
+        const nodes: FlowNode[] = [];
+        for (const node of doc.nodes) {
+          // validateGraph rejects these; loading stays safe on a graph it never saw.
+          if (!(MODEL_KINDS as readonly string[]).includes(node.kind)) continue;
+          const kind = node.kind as ModelKind;
+          ids[node.id] = nextId(kind);
+          nodes.push({
+            id: ids[node.id],
+            type: kind,
+            position: at[node.id],
+            data: toNodeData(kind, node.data),
+          } as FlowNode);
+        }
+
+        const edges: FlowEdge[] = [];
+        for (const edge of doc.edges) {
+          const from = parseHandleId(edge.sourceHandle);
+          const to = parseHandleId(edge.targetHandle);
+          const source = ids[edge.source];
+          const target = ids[edge.target];
+          if (!from || !to || !source || !target) continue;
+          const sourceHandle = handleId(source, from.type, from.port);
+          const targetHandle = handleId(target, to.type, to.port);
+          edges.push({
+            id: `${sourceHandle}->${targetHandle}`,
+            source,
+            target,
+            sourceHandle,
+            targetHandle,
+            animated: false,
+            style: { stroke: "#94a3b8" },
+          });
+        }
+
+        set({ nodes: [...get().nodes, ...nodes], edges: [...get().edges, ...edges] });
+        return ids;
       },
       updateNodeData: (id, data) => {
         set({
