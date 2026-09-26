@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { NoObjectGeneratedError, Output, generateText } from "ai";
 import { assignIds, nextStubGroups } from "@/lib/cluster";
 import { ClusterResponse } from "@/lib/cluster-schema";
-import { LLM_MODEL, hasLlmKey } from "@/lib/llm";
+import { LLM_MODEL, hasLlmAccess } from "@/lib/llm";
 import type { ClusterGroup, ClusterNodeData } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   // Stub mode: the fixture's next set, through the same rotation the thin slice used.
-  if (!hasLlmKey()) {
+  if (!hasLlmAccess(req)) {
     await new Promise((resolve) => setTimeout(resolve, STUB_ROLL_MS));
     return NextResponse.json({ groups: nextStubGroups(data.groups ?? []), stub: true });
   }

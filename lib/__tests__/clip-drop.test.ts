@@ -31,6 +31,7 @@ const reference = () => useFlowStore.getState().nodes.find((n) => n.type === "re
 
 beforeEach(() => {
   vi.stubEnv("AI_GATEWAY_API_KEY", "");
+  vi.stubEnv("VERCEL_OIDC_TOKEN", "");
   vi.stubGlobal("fetch", route);
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:http://localhost/dusk", revokeObjectURL }));
   sample.mockClear();

@@ -11,7 +11,7 @@ import {
   type GraphError,
 } from "@/lib/flow-doc";
 import type { SampledClip } from "@/lib/frames";
-import { LLM_MODEL, hasLlmKey } from "@/lib/llm";
+import { LLM_MODEL, hasLlmAccess } from "@/lib/llm";
 import fixture from "@/lib/stubs/clip-analysis.json";
 
 export const runtime = "nodejs";
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No frames to read" }, { status: 400 });
   }
 
-  if (!hasLlmKey()) {
+  if (!hasLlmAccess(req)) {
     return reply(fixture as ClipAnalysis, "first pass", true);
   }
 
