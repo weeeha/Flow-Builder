@@ -262,6 +262,24 @@ try {
   }
   check("Run all takes every node to done in stub mode", found && Object.values(statuses).every((s) => s === "done"), JSON.stringify(statuses));
 
+  // A reload with no Blob store: both clips were session-only object URLs, so
+  // each card says so, and keeps the frames and summary read from its clip.
+  const reloaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
+  await send("Page.reload");
+  await reloaded;
+  for (let i = 0; i < 40; i++) {
+    await sleep(250);
+    if (await evaluate("document.querySelectorAll('[aria-label=\"Frames from the clip\"]').length === 2")) break;
+  }
+  const afterReload = await evaluate(`[...document.querySelectorAll('.react-flow__node-reference')].map((card) => ({
+    missing: card.querySelector('[data-slot=media-slot]')?.textContent.includes('Clip missing after reload. Drop it again.') ?? false,
+    video: Boolean(card.querySelector('video')),
+    strip: card.querySelectorAll('[aria-label="Frames from the clip"] img').length,
+    summary: card.textContent.includes('1 shot, push-in, dusk'),
+  }))`);
+  check("after a reload each card says its clip is missing, with no dead player", afterReload.length === 2 && afterReload.every((c) => c.missing && !c.video), JSON.stringify(afterReload));
+  check("and keeps its 3 frames and the summary", afterReload.every((c) => c.strip === 3 && c.summary));
+
   await evaluate("document.querySelector('.react-flow__controls-fitview').click()");
   await sleep(800);
   const shot = await send("Page.captureScreenshot", { format: "png" });

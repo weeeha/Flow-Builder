@@ -35,7 +35,7 @@ export function ReferenceNode({ id, data, selected }: Props) {
         kind="video"
         status={slotStatus}
         src={data.clipUrl}
-        emptyText={line ?? "Reading the clip..."}
+        emptyText={data.clipMissing ? "Clip missing after reload. Drop it again." : (line ?? "Reading the clip...")}
         className="nodrag"
       />
 
