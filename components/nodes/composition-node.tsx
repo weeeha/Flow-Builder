@@ -1,8 +1,9 @@
 "use client";
 
 import type { NodeProps } from "@xyflow/react";
-import { Film } from "lucide-react";
-import type { FlowNode } from "@/lib/types";
+import { MediaSlot } from "@/components/flow/media-slot";
+import { slotStatus } from "@/lib/flow-status";
+import { HANDLE_COLORS, type FlowNode } from "@/lib/types";
 import { BaseNode } from "./base-node";
 
 type Props = NodeProps<Extract<FlowNode, { type: "composition" }>>;
@@ -18,20 +19,16 @@ export function CompositionNode({ id, data, selected }: Props) {
       width={420}
     >
 
-      <div className="mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
-        {data.videoUrl ? (
-          <video src={data.videoUrl} controls className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-neutral-300">
-            <Film size={28} />
-            <span className="text-[11px]">Your generation will appear here</span>
-          </div>
-        )}
-      </div>
+      <MediaSlot
+        kind="video"
+        status={slotStatus(data.status, data.videoUrl)}
+        src={data.videoUrl}
+        className="nodrag mb-2"
+      />
 
       <div className="space-y-1.5">
-        <Track color="#8b5cf6" label="Video" present={Boolean(data.videoUrl)} />
-        <Track color="#ec4899" label="Text to Speech" present={Boolean(data.audioUrl)} />
+        <Track color={HANDLE_COLORS.video} label="Video" present={Boolean(data.videoUrl)} />
+        <Track color={HANDLE_COLORS.audio} label="Text to Speech" present={Boolean(data.audioUrl)} />
       </div>
     </BaseNode>
   );

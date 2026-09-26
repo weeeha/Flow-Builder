@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import { ImagePlus, Pin, Shuffle, Sparkles, Video, type LucideIcon } from "lucide-react";
+import { NodePrompt } from "@/components/flow/node-prompt";
 import { TypedHandle } from "@/components/handles/typed-handle";
 import { CLUSTER_WIDTH, branchFromPin, type BranchKind } from "@/lib/branch";
 import { MAX_PINS, toOutputTexts, togglePin } from "@/lib/cluster";
@@ -126,13 +127,13 @@ export function ClusterNode({ id, data, selected }: Props) {
 
       <WirePreview id={id} />
 
-      <textarea
+      <NodePrompt
         value={data.prompt}
-        onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
+        onChange={(prompt) => updateNodeData(id, { prompt })}
         placeholder="A loose prompt, e.g. a lighthouse at dusk"
         rows={2}
         aria-label="Seed prompt"
-        className="nodrag w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-400"
+        className="nodrag"
       />
 
       <p className="sr-only" role="status">
