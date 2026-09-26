@@ -29,4 +29,9 @@ describe("hasLlmAccess", () => {
   it("goes live on a deployment, where the token arrives as a request header", () => {
     expect(hasLlmAccess(request({ "x-vercel-oidc-token": "runtime-token" }))).toBe(true);
   });
+
+  it("stays in stub mode for the check scripts' cookie, key or no key", () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+    expect(hasLlmAccess(request({ cookie: "theme=dark; flow-stub=1", "x-vercel-oidc-token": "t" }))).toBe(false);
+  });
 });

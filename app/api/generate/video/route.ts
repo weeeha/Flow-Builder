@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import RunwayML, { TaskFailedError, TaskTimedOutError } from "@runwayml/sdk";
 import { providerOf, runwayModelId } from "@/lib/models";
+import { wantsStub } from "@/lib/stub";
 import type { VideoNodeData } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     duration: data.duration,
     startImage: inputs.images[0],
   };
+  if (wantsStub(req)) return NextResponse.json({ url: STUB_URL });
 
   try {
     const url =

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { wantsStub } from "@/lib/stub";
 import type { ImageNodeData } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   const falKey = process.env.FAL_KEY;
-  if (!falKey) {
+  if (!falKey || wantsStub(req)) {
     const seed = encodeURIComponent(prompt.slice(0, 60));
     return NextResponse.json({
       url: `https://placehold.co/800x450/e5e7eb/64748b?text=${seed}`,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { wantsStub } from "@/lib/stub";
 import type { TTSNodeData } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || wantsStub(req)) {
     return NextResponse.json({
       url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     });
