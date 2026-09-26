@@ -19,6 +19,9 @@ const sample = vi.fn(async (_file: File, _n?: number, onFrame?: (frame: SampledC
   sampled.frames.forEach((frame, i) => onFrame?.(frame, i));
   return sampled;
 });
+// Uploads are off unless a test turns them on: no Blob store in a unit test.
+const upload = vi.fn(async (_file: File): Promise<string | null> => null);
+const revokeObjectURL = vi.fn();
 const route = vi.fn(async (url: string, init?: RequestInit): Promise<Response> =>
   POST(new Request(`http://localhost${url}`, init))
 );
@@ -29,8 +32,10 @@ const reference = () => useFlowStore.getState().nodes.find((n) => n.type === "re
 beforeEach(() => {
   vi.stubEnv("AI_GATEWAY_API_KEY", "");
   vi.stubGlobal("fetch", route);
-  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:http://localhost/dusk" }));
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:http://localhost/dusk", revokeObjectURL }));
   sample.mockClear();
+  upload.mockReset().mockResolvedValue(null);
+  revokeObjectURL.mockClear();
   localStorage.removeItem(CLIP_LOG_KEY);
   route.mockClear();
   useFlowStore.setState({ nodes: [], edges: [] });
@@ -44,7 +49,7 @@ afterEach(() => {
 describe("readClip", () => {
   it("drops a reference node at the point, then lands the analysed graph beside it", async () => {
     const existing = useFlowStore.getState().addNode("image", { x: -900, y: 0 });
-    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 100, y: 200 }, { sample, upload, revealMs: 0 });
 
     const ref = reference();
     expect(ref.position).toEqual({ x: 100, y: 200 });
@@ -75,7 +80,7 @@ describe("readClip", () => {
 
   it("slides the reference card below a card it was dropped onto", async () => {
     const existing = useFlowStore.getState().addNode("image", { x: 90, y: 180 });
-    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 100, y: 200 }, { sample, upload, revealMs: 0 });
     const ref = reference().position;
     expect(ref.x).toBe(100);
     // The image card has no measured size in jsdom, so its 360px fallback height counts.
@@ -85,7 +90,7 @@ describe("readClip", () => {
 
   it("slides the graph below a card sitting where it would land", async () => {
     const blocker = useFlowStore.getState().addNode("video", { x: 100 + 2 * COLUMN_GAP, y: 250 });
-    await readClip(file, { x: 100, y: 200 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 100, y: 200 }, { sample, upload, revealMs: 0 });
     const graph = useFlowStore.getState().nodes.filter((n) => n.type !== "reference" && n.id !== blocker);
     const top = Math.min(...graph.map((n) => n.position.y));
     // The graph's first row starts below the blocker instead of at the drop's y.
@@ -101,7 +106,7 @@ describe("readClip", () => {
         steps.push({ sampled: ref.data.sampled, frames: ref.data.frames.length });
       }
     });
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     stop();
     const counts = [...new Set(steps.map((s) => s.sampled))];
     expect(counts).toEqual([undefined, 1, 2, 3, 4, 5, 6, 7, 8]);
@@ -114,28 +119,53 @@ describe("readClip", () => {
 
   it("logs nothing when the read fails", async () => {
     sample.mockRejectedValueOnce(new Error("nope"));
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(localStorage.getItem(CLIP_LOG_KEY)).toBeNull();
   });
 
   it("turns away a file that is not a video before reading it", async () => {
     const text = new File(["hello"], "notes.txt", { type: "text/plain" });
-    await readClip(text, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(text, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("notes.txt is not a video. Drop an .mp4, .mov or .webm clip.");
     expect(sample).not.toHaveBeenCalled();
     expect(route).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("swaps the session URL for the stored one once the upload lands", async () => {
+    const stored = "https://store.public.blob.vercel-storage.com/clips/dusk-a1b2.mp4";
+    upload.mockResolvedValueOnce(stored);
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
+
+    expect(upload).toHaveBeenCalledWith(file);
+    expect(reference().data).toMatchObject({ status: "done", clipUrl: stored, outputUrl: stored });
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/dusk");
+  });
+
+  it("keeps the session URL when uploads are off, and still reads the clip", async () => {
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
+    expect(reference().data).toMatchObject({ status: "done", clipUrl: "blob:http://localhost/dusk" });
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("stores the clip even when the read fails, so a retry has it", async () => {
+    const stored = "https://store.public.blob.vercel-storage.com/clips/dusk-a1b2.mp4";
+    upload.mockResolvedValueOnce(stored);
+    sample.mockRejectedValueOnce(new Error("nope"));
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
+    expect(reference().data).toMatchObject({ status: "error", clipUrl: stored });
   });
 
   it("marks a clip read only in part", async () => {
     sample.mockResolvedValueOnce({ ...sampled, duration: 130, trimmed: true });
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data).toMatchObject({ duration: 130, trimmed: true, status: "done" });
   });
 
   it("offers an empty image-into-video skeleton when the analysis fails, and lands it on request", async () => {
     route.mockResolvedValueOnce(Response.json({ error: "Analysis failed: gateway timeout" }, { status: 502 }));
-    const id = await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    const id = await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data).toMatchObject({ status: "error", error: "Analysis failed: gateway timeout", offerSkeleton: true });
 
     await landSkeleton(id, { revealMs: 0 });
@@ -150,13 +180,13 @@ describe("readClip", () => {
 
   it("does not offer the skeleton when the clip itself could not be read", async () => {
     sample.mockRejectedValueOnce(new Error("Could not read this file as a video"));
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data.offerSkeleton).toBeFalsy();
   });
 
   it("shows a failed read on the reference node and lands no graph", async () => {
     sample.mockRejectedValueOnce(new Error("Could not read this file as a video"));
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("Could not read this file as a video");
     expect(useFlowStore.getState().nodes).toHaveLength(1);
@@ -165,7 +195,7 @@ describe("readClip", () => {
 
   it("shows a failed analysis the same way", async () => {
     route.mockResolvedValueOnce(Response.json({ error: "No frames to read" }, { status: 400 }));
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 0 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("No frames to read");
     expect(useFlowStore.getState().nodes).toHaveLength(1);
@@ -190,7 +220,7 @@ describe("readClip's reveal", () => {
   it("lands the graph one node per step, left to right, with each edge once both ends exist", async () => {
     vi.useFakeTimers();
     const { seen, stop } = watch();
-    const done = readClip(file, { x: 0, y: 0 }, { sample, revealMs: 150 });
+    const done = readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 150 });
     await vi.runAllTimersAsync();
     await done;
     stop();
@@ -207,7 +237,7 @@ describe("readClip's reveal", () => {
 
   it("lands everything at once when reduced motion is on", async () => {
     const { seen, stop } = watch();
-    await readClip(file, { x: 0, y: 0 }, { sample, revealMs: 150, reducedMotion: true });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 150, reducedMotion: true });
     stop();
     expect(seen.filter((s) => s.nodes > 1).map((s) => s.nodes)).toEqual([5]);
   });

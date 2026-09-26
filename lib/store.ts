@@ -10,6 +10,7 @@ import {
   type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
+import { markLostClips } from "./clip-upload";
 import { MODEL_KINDS, layoutGraph, toNodeData, type FlowDoc, type ModelKind } from "./flow-doc";
 import { handleId, parseHandleId } from "./handles";
 import { initialData } from "./node-kinds";
@@ -167,6 +168,10 @@ export const useFlowStore = create<FlowState>()(
     {
       name: "flow-builder-state",
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<Pick<FlowState, "nodes" | "edges">>;
+        return { ...current, ...saved, nodes: markLostClips(saved.nodes ?? current.nodes) };
+      },
     }
   )
 );

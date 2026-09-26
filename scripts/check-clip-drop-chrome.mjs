@@ -262,6 +262,45 @@ try {
   }
   check("Run all takes every node to done in stub mode", found && Object.values(statuses).every((s) => s === "done"), JSON.stringify(statuses));
 
+  // Both modes end with a reload. With BLOB_READ_WRITE_TOKEN set on the dev
+  // server the clips upload while they are read, so they survive it; without,
+  // they are session-only object URLs, and each card says so instead. Either
+  // way the frames and summary read from the clip stay.
+  let refs = [];
+  for (let i = 0; i < 40; i++) {
+    refs = (await stored()).nodes.filter((n) => n.type === "reference");
+    if (refs.every((r) => r.data.clipUrl?.startsWith("https://"))) break;
+    await sleep(500);
+  }
+  const uploaded = refs.length > 0 && refs.every((r) => r.data.clipUrl?.startsWith("https://"));
+  console.log(`INFO uploads ${uploaded ? "on: " + refs.map((r) => r.data.clipUrl.replace(/^https:\/\/([^/]+).*$/, "$1")).join(", ") : "off"}`);
+  if (uploaded) {
+    check("each clip's stored URL is also what its video output hands on", refs.every((r) => r.data.outputUrl === r.data.clipUrl));
+  }
+
+  const reloaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
+  await send("Page.reload");
+  await reloaded;
+  for (let i = 0; i < 40; i++) {
+    await sleep(250);
+    if (await evaluate("document.querySelectorAll('[aria-label=\"Frames from the clip\"]').length === 2")) break;
+  }
+  await sleep(uploaded ? 3000 : 0);
+  const afterReload = await evaluate(`[...document.querySelectorAll('.react-flow__node-reference')].map((card) => ({
+    missing: card.querySelector('[data-slot=media-slot]')?.textContent.includes('Clip missing after reload. Drop it again.') ?? false,
+    video: card.querySelector('video')?.src.slice(0, 8) ?? null,
+    playable: (card.querySelector('video')?.readyState ?? 0) >= 1,
+    duration: Math.round(card.querySelector('video')?.duration ?? 0),
+    strip: card.querySelectorAll('[aria-label="Frames from the clip"] img').length,
+    summary: card.textContent.includes('1 shot, push-in, dusk'),
+  }))`);
+  if (uploaded) {
+    check("after a reload each stored clip still plays", afterReload.length === 2 && afterReload.every((c) => !c.missing && c.video === "https://" && c.playable && c.duration === 6), JSON.stringify(afterReload));
+  } else {
+    check("after a reload each card says its clip is missing, with no dead player", afterReload.length === 2 && afterReload.every((c) => c.missing && !c.video), JSON.stringify(afterReload));
+  }
+  check("and keeps its 3 frames and the summary", afterReload.every((c) => c.strip === 3 && c.summary));
+
   await evaluate("document.querySelector('.react-flow__controls-fitview').click()");
   await sleep(800);
   const shot = await send("Page.captureScreenshot", { format: "png" });
