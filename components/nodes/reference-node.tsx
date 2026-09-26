@@ -52,7 +52,8 @@ export function ReferenceNode({ id, data, selected }: Props) {
         </div>
       )}
 
-      <p aria-live="polite" className="mt-2 min-h-4 text-[11px] text-neutral-500">
+      {/* Clamped like the error banner, so the card has a tallest size to plan drops around. */}
+      <p aria-live="polite" title={line ?? undefined} className="mt-2 min-h-4 line-clamp-3 text-[11px] text-neutral-500">
         {line}
       </p>
 
