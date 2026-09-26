@@ -5,6 +5,7 @@ import { COLUMN_GAP } from "../flow-doc";
 import type { SampledClip } from "../frames";
 import { useFlowStore } from "../store";
 import fixture from "../stubs/clip-analysis.json";
+import type { FlowNode } from "../types";
 
 import { POST } from "@/app/api/analyze/clip/route";
 
@@ -199,6 +200,119 @@ describe("readClip", () => {
     expect(reference().data.status).toBe("error");
     expect(reference().data.error).toBe("No frames to read");
     expect(useFlowStore.getState().nodes).toHaveLength(1);
+  });
+});
+
+describe("readClip beside work still in flight", () => {
+  // Card sizes as Chrome draws them. A reference card is 336px tall while it
+  // reads and with a one-line summary; a four-line summary takes it to 385px.
+  const LONG_SUMMARY =
+    "1 static shot of a colour test pattern: bars, a sweeping clock hand and a frame counter over a grey field, no camera move, even studio light";
+  const CARD = {
+    image: { width: 320, height: 319 },
+    video: { width: 360, height: 342 },
+    composition: { width: 420, height: 368 },
+    tts: { width: 320, height: 194 },
+  } as const;
+  const sizeOf = (node: FlowNode) =>
+    node.type === "reference"
+      ? { width: 320, height: node.data.summary === LONG_SUMMARY ? 385 : 336 }
+      : CARD[node.type as keyof typeof CARD];
+
+  /** Measures every card whenever the store changes, as React Flow does once a card renders. */
+  const measure = () =>
+    useFlowStore.subscribe((state) => {
+      const stale = state.nodes.some((n) => n.measured?.height !== sizeOf(n).height);
+      if (stale) useFlowStore.setState({ nodes: state.nodes.map((n) => ({ ...n, measured: sizeOf(n) })) });
+    });
+
+  /** Every pair of cards that overlap as drawn. */
+  const overlaps = () => {
+    const boxes = useFlowStore.getState().nodes.map((n) => ({ id: n.id, ...n.position, ...sizeOf(n) }));
+    return boxes.flatMap((a, i) =>
+      boxes
+        .slice(i + 1)
+        .filter((b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height)
+        .map((b) => `${a.id}/${b.id}`)
+    );
+  };
+
+  /**
+   * Holds the next `count` analyses until each gate opens, the way a slow model
+   * keeps a clip reading; the real route answers once it does.
+   */
+  const holdAnalyses = (count: number, summary?: string) => {
+    const gates: (() => void)[] = [];
+    for (let i = 0; i < count; i++) {
+      route.mockImplementationOnce(async (url, init) => {
+        await new Promise<void>((open) => gates.push(open));
+        const res = await POST(new Request(`http://localhost${url}`, init));
+        if (!summary) return res;
+        const body = await res.json();
+        return Response.json({ ...body, breakdown: { ...body.breakdown, summary } });
+      });
+    }
+    return gates;
+  };
+
+  /** Advance fake time a millisecond at a time until `done` holds. */
+  const settle = async (done: () => boolean) => {
+    for (let i = 0; i < 1000 && !done(); i++) await vi.advanceTimersByTimeAsync(1);
+    expect(done()).toBe(true);
+  };
+
+  it("plans a new card at the height it reaches, clear of a card just below the drop", async () => {
+    const stop = measure();
+    const below = useFlowStore.getState().addNode("image", { x: 0, y: 300 });
+    await readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 0 });
+    stop();
+    expect(overlaps()).toEqual([]);
+    expect(useFlowStore.getState().nodes.find((n) => n.id === below)?.position).toEqual({ x: 0, y: 300 });
+  });
+
+  it("leaves room below a card still reading for what its answer adds", async () => {
+    const stop = measure();
+    const existing = useFlowStore.getState().addNode("image", { x: -600, y: 0 });
+    const gates = holdAnalyses(2, LONG_SUMMARY);
+    // Both dropped onto the middle of the card already there.
+    const at = { x: -440, y: 160 };
+    const first = readClip(file, at, { sample, upload, revealMs: 0 });
+    await vi.waitFor(() => expect(gates).toHaveLength(1));
+    const second = readClip(file, at, { sample, upload, revealMs: 0 });
+    await vi.waitFor(() => expect(gates).toHaveLength(2));
+    gates[0]();
+    await first;
+    gates[1]();
+    await second;
+    stop();
+
+    const refs = useFlowStore.getState().nodes.filter((n) => n.type === "reference");
+    expect(refs.map((r) => r.measured?.height)).toEqual([385, 385]);
+    expect(overlaps()).toEqual([]);
+    expect(useFlowStore.getState().nodes.find((n) => n.id === existing)?.position).toEqual({ x: -600, y: 0 });
+  });
+
+  it("keeps the spots of a graph still landing from a graph that lands meanwhile", async () => {
+    vi.useFakeTimers();
+    const stop = measure();
+    const gates = holdAnalyses(2);
+    const graphCards = () => useFlowStore.getState().nodes.filter((n) => n.type !== "reference").length;
+    const first = readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 150 });
+    await settle(() => gates.length === 1);
+    const second = readClip(file, { x: 0, y: 0 }, { sample, upload, revealMs: 150 });
+    await settle(() => gates.length === 2);
+    // The second clip's answer comes back first and its graph starts landing...
+    gates[1]();
+    await settle(() => graphCards() === 1);
+    // ...and the first clip's graph is placed before the rest of it has landed.
+    gates[0]();
+    await vi.runAllTimersAsync();
+    await Promise.all([first, second]);
+    stop();
+    vi.useRealTimers();
+
+    expect(graphCards()).toBe(2 * fixture.graph.nodes.length);
+    expect(overlaps()).toEqual([]);
   });
 });
 

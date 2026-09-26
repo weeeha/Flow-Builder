@@ -12,18 +12,39 @@ const KEPT_FRAMES = 3;
 import { buildGraph, useFlowStore } from "./store";
 import type { FlowEdge, FlowNode } from "./types";
 
+/**
+ * The tallest a reference card gets: a failed read with a three-line error and
+ * the skeleton offer, 439px in Chrome and 436 in Safari (the summary line is
+ * clamped to three lines so it stays under). A new card is planned at this height,
+ * and a card still reading counts at it, since its answer can grow it that far
+ * after something has been placed below it.
+ */
+const REFERENCE_SIZE = { width: 320, height: 460 };
 /** Sizes to plan around before React Flow has measured a card. */
-const REFERENCE_SIZE = { width: 320, height: 260 };
 const UNMEASURED_SIZE = { width: 360, height: 360 };
-/** The widest and tallest card a graph can hold, for its last column and row. */
-const LARGEST_CARD = { width: 420, height: 360 };
+/** The widest and tallest card a graph can hold (the composition card, 420 × 368). */
+const LARGEST_CARD = { width: 420, height: 380 };
 
 function boxOf(node: FlowNode): Box {
+  const height = node.measured?.height ?? UNMEASURED_SIZE.height;
+  const reading = node.type === "reference" && node.data.status === "running";
   return {
     ...node.position,
     width: node.measured?.width ?? UNMEASURED_SIZE.width,
-    height: node.measured?.height ?? UNMEASURED_SIZE.height,
+    height: reading ? Math.max(height, REFERENCE_SIZE.height) : height,
   };
+}
+
+/**
+ * Spots handed to a graph whose cards are still landing one at a time, so a
+ * drop or another graph placed meanwhile keeps clear of the ones not there yet.
+ */
+const landing = new Set<Box[]>();
+
+/** What a new card keeps clear of: every card but `except`, and the spots of graphs still landing. */
+function taken(except?: string): Box[] {
+  const cards = useFlowStore.getState().nodes.filter((n) => n.id !== except).map(boxOf);
+  return [...cards, ...[...landing].flat()];
 }
 
 const REVEAL_MS = 150;
@@ -97,7 +118,7 @@ export async function readClip(
   const { addReference, updateNodeData, setNodeStatus } = useFlowStore.getState();
   const isVideo = file.type.startsWith("video/");
   const clipUrl = isVideo ? URL.createObjectURL(file) : undefined;
-  const spot = clearSpot({ ...at, ...REFERENCE_SIZE }, useFlowStore.getState().nodes.map(boxOf));
+  const spot = clearSpot({ ...at, ...REFERENCE_SIZE }, taken());
   const id = addReference(spot, { clipUrl, outputUrl: clipUrl });
   if (!isVideo) {
     setNodeStatus(id, "error", `${file.name} is not a video. Drop an .mp4, .mov or .webm clip.`);
@@ -155,16 +176,20 @@ export async function readClip(
 
 /** A graph laid out one column right of a reference card, slid clear of other cards. */
 async function landBeside(referenceId: string, doc: FlowDoc, revealMs: number) {
-  const nodes = useFlowStore.getState().nodes;
-  const ref = nodes.find((n) => n.id === referenceId);
+  const ref = useFlowStore.getState().nodes.find((n) => n.id === referenceId);
   if (!ref) return;
-  const others = nodes.filter((n) => n.id !== referenceId).map(boxOf);
   const origin = clearSpot(
     { x: ref.position.x + COLUMN_GAP, y: ref.position.y, ...footprint(doc) },
-    others
+    taken(referenceId)
   );
   const built = buildGraph(doc, origin);
-  await reveal(built.nodes, built.edges, revealMs);
+  const spots = built.nodes.map((n) => ({ ...n.position, ...LARGEST_CARD }));
+  landing.add(spots);
+  try {
+    await reveal(built.nodes, built.edges, revealMs);
+  } finally {
+    landing.delete(spots);
+  }
 }
 
 /** What a failed analysis can still start from: one image into one video. */
