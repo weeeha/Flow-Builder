@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toFlowStatus } from "../flow-status";
+import { slotStatus, toFlowStatus } from "../flow-status";
 
 describe("toFlowStatus", () => {
   it("maps idle to idle", () => {
@@ -23,4 +23,20 @@ describe("toFlowStatus", () => {
   it.todo(
     "queued: not for now (Nick, 2026-09-23); revisit if Run all ever runs nodes in parallel"
   );
+});
+
+describe("slotStatus", () => {
+  it("shows an idle node's earlier output, as after a reload", () => {
+    expect(slotStatus("idle", "https://example.com/a.png")).toBe("done");
+  });
+
+  it("leaves an idle node with nothing to show idle", () => {
+    expect(slotStatus("idle", undefined)).toBe("idle");
+  });
+
+  it("follows the node's status otherwise, output or not", () => {
+    expect(slotStatus("running", "https://example.com/a.png")).toBe("streaming");
+    expect(slotStatus("error", "https://example.com/a.png")).toBe("failed");
+    expect(slotStatus("done", undefined)).toBe("done");
+  });
 });
