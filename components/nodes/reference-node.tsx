@@ -3,7 +3,7 @@
 import type { NodeProps } from "@xyflow/react";
 import { MediaSlot } from "@/components/flow/media-slot";
 import { landSkeleton } from "@/lib/clip-drop";
-import { toFlowStatus } from "@/lib/flow-status";
+import { slotStatus } from "@/lib/flow-status";
 import { referenceStatus } from "@/lib/reference-status";
 import type { FlowNode } from "@/lib/types";
 import { BaseNode } from "./base-node";
@@ -17,8 +17,6 @@ type Props = NodeProps<Extract<FlowNode, { type: "reference" }>>;
  * The one video output comes from the kind table, drawn by BaseNode.
  */
 export function ReferenceNode({ id, data, selected }: Props) {
-  // As in tts-node: a reloaded node sits at idle with its clip still set.
-  const slotStatus = data.status === "idle" && data.clipUrl ? "done" : toFlowStatus(data.status);
   const line = referenceStatus(data);
 
   return (
@@ -33,7 +31,7 @@ export function ReferenceNode({ id, data, selected }: Props) {
     >
       <MediaSlot
         kind="video"
-        status={slotStatus}
+        status={slotStatus(data.status, data.clipUrl)}
         src={data.clipUrl}
         emptyText={line ?? "Reading the clip..."}
         className="nodrag"

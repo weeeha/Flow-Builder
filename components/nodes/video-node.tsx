@@ -1,7 +1,9 @@
 "use client";
 
 import type { NodeProps } from "@xyflow/react";
-import { Video as VideoIcon } from "lucide-react";
+import { MediaSlot } from "@/components/flow/media-slot";
+import { NodePrompt } from "@/components/flow/node-prompt";
+import { slotStatus } from "@/lib/flow-status";
 import { useFlowStore } from "@/lib/store";
 import { videoModelLabel } from "@/lib/models";
 import type { FlowNode } from "@/lib/types";
@@ -27,24 +29,20 @@ export function VideoNode({ id, data, selected }: Props) {
 
       <WirePreview id={id} />
 
-      <div className="mb-2 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
-        {data.outputUrl ? (
-          <video
-            src={data.outputUrl}
-            controls
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <VideoIcon size={28} className="text-neutral-300" />
-        )}
-      </div>
+      <MediaSlot
+        kind="video"
+        status={slotStatus(data.status, data.outputUrl)}
+        src={data.outputUrl}
+        className="nodrag mb-2"
+      />
 
-      <textarea
+      <NodePrompt
         value={data.prompt}
-        onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
+        onChange={(prompt) => updateNodeData(id, { prompt })}
         placeholder="Describe the video..."
         rows={3}
-        className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-400"
+        aria-label="Video prompt"
+        className="nodrag"
       />
     </BaseNode>
   );

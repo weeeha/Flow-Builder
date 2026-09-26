@@ -18,3 +18,12 @@ const STATUS_MAP: Record<NodeStatus, FlowStatus> = {
 export function toFlowStatus(status: NodeStatus): FlowStatus {
   return STATUS_MAP[status];
 }
+
+/**
+ * What a card's MediaSlot shows. The slot draws media only at "done", and a
+ * node reloaded with an earlier output sits at "idle", so idle with an output
+ * counts as done and the output survives a reload.
+ */
+export function slotStatus(status: NodeStatus, output?: string): FlowStatus {
+  return status === "idle" && output ? "done" : toFlowStatus(status);
+}
