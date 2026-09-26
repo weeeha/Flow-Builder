@@ -4,6 +4,7 @@ import { clearSpot, type Box } from "./cluster";
 import type { AnalyzeClipResponse } from "./clip-schema";
 import { COLUMN_GAP, layoutGraph, type FlowDoc } from "./flow-doc";
 import { recordClipRun } from "./clip-log";
+import { uploadClip } from "./clip-upload";
 import { FRAME_COUNT, pickThumbnails, sampleFrames, type SampledClip, type SampledFrame } from "./frames";
 
 /** Frames kept on the reference node for its strip. */
@@ -71,18 +72,24 @@ function footprint(doc: FlowDoc): { width: number; height: number } {
  * there (as the cluster's branches do), and nothing already there moves. Every
  * failure shows on the reference node.
  *
- * The options exist for tests: jsdom cannot decode video, and a test wants the
- * reveal fast or its steps visible. The page passes none.
+ * The clip uploads to Blob storage while it is read, when uploads are on. Once
+ * stored, the card and everything wired to it hold a URL that survives a
+ * reload and that a provider can fetch; until then, a session-only object URL.
+ *
+ * The options exist for tests: jsdom cannot decode video or reach Blob, and a
+ * test wants the reveal fast or its steps visible. The page passes none.
  */
 export async function readClip(
   file: File,
   at: { x: number; y: number },
   {
     sample = sampleFrames,
+    upload = uploadClip,
     revealMs = REVEAL_MS,
     reducedMotion = prefersReducedMotion(),
   }: {
     sample?: (file: File, n: number, onFrame: (frame: SampledFrame, index: number) => void) => Promise<SampledClip>;
+    upload?: (file: File) => Promise<string | null>;
     revealMs?: number;
     reducedMotion?: boolean;
   } = {}
@@ -97,6 +104,12 @@ export async function readClip(
     return id;
   }
   setNodeStatus(id, "running");
+
+  const stored = upload(file).then((url) => {
+    if (!url) return;
+    updateNodeData(id, { clipUrl: url, outputUrl: url });
+    URL.revokeObjectURL(clipUrl!);
+  });
 
   let clip: SampledClip;
   try {
@@ -113,6 +126,7 @@ export async function readClip(
     updateNodeData(id, { ...clip, frames: pickThumbnails(clip.frames, KEPT_FRAMES) });
   } catch (err) {
     setNodeStatus(id, "error", (err as Error).message);
+    await stored;
     return id;
   }
 
@@ -135,6 +149,7 @@ export async function readClip(
     updateNodeData(id, { sampled: undefined, offerSkeleton: true });
     setNodeStatus(id, "error", (err as Error).message);
   }
+  await stored;
   return id;
 }
 

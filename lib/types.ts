@@ -95,9 +95,9 @@ export interface ClusterNodeData extends BaseNodeData {
  * from the toolbar.
  */
 export interface ReferenceNodeData extends BaseNodeData {
-  /** An object URL for this session, or a Blob URL once uploads exist. */
+  /** An object URL for this session, or a Blob URL once the upload lands. */
   clipUrl?: string;
-  /** True after a reload lost a session-only clip. */
+  /** True after a reload lost a clip that never reached Blob storage. */
   clipMissing?: boolean;
   frames: { t: number; dataUrl: string }[];
   /** How many frames sampling has read so far; set while it runs. */
