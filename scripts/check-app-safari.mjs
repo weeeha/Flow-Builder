@@ -6,6 +6,7 @@
 // taking video and audio, a real clip drop samples 8 frames (Safari's `seeked`
 // and audio-track paths, the spec's two Safari risks), a non-video file is turned
 // away, and Tab reaches Choose clip. CLIP defaults to a 6s test clip with a tone.
+import { STATE_JS, legacyFile, openFlowWd } from "./lib/flow-session.mjs";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -69,16 +70,18 @@ const check = (name, ok, detail = "") => {
 const { sessionId: sid, end: endSafari } = await startSafari(wd);
 const S = (p) => `/session/${sid}${p}`;
 const exec = (script, args = []) => wd("POST", S("/execute/sync"), { script, args });
-const stored = () => exec(`return JSON.parse(localStorage.getItem("flow-builder-state")).state`);
+const execAsync = (expr) =>
+  wd("POST", S("/execute/async"), {
+    script: `const done = arguments[arguments.length - 1]; Promise.resolve(${expr}).then(done, (e) => done({ __error: String(e) }));`,
+    args: [],
+  });
+const navigate = (url) => wd("POST", S("/url"), { url });
+const session = { exec, execAsync, navigate, sleep };
+const stored = () => exec(`return ${STATE_JS}`);
 const tab = () =>
   wd("POST", S("/actions"), { actions: [{ type: "key", id: "kb", actions: [{ type: "keyDown", value: "" }, { type: "keyUp", value: "" }] }] });
 const load = async (state) => {
-  await exec(`localStorage.clear(); ${state ? `localStorage.setItem("flow-builder-state", arguments[0]);` : ""} location.reload();`,
-    state ? [JSON.stringify({ state, version: 0 })] : []);
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await exec("return document.readyState === 'complete' && Boolean(document.querySelector('.react-flow__controls'))")) break;
-  }
+  await openFlowWd(session, APP, state ? legacyFile(state.nodes, state.edges) : null);
   await sleep(500);
 };
 const overlaps = () => exec(`
@@ -92,10 +95,6 @@ const overlaps = () => exec(`
 
 try {
   await wd("POST", S("/window/rect"), { x: 0, y: 0, width: 1440, height: 900 });
-  await wd("POST", S("/url"), { url: APP });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await wd("POST", S("/cookie"), { cookie: { name: "flow-stub", value: "1", path: "/" } });
-  await sleep(1500);
 
   // 1. A graph saved before the refactor.
   await load(SAVED);

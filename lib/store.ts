@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import {
   addEdge,
   applyEdgeChanges,
@@ -10,15 +9,23 @@ import {
   type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
-import { markLostClips } from "./clip-upload";
+import type { FlowFile } from "./flows/format";
 import { MODEL_KINDS, layoutGraph, toNodeData, type FlowDoc, type ModelKind } from "./flow-doc";
 import { handleId, parseHandleId } from "./handles";
 import { initialData } from "./node-kinds";
 import type { FlowEdge, FlowNode, NodeKind, NodeStatus, ReferenceNodeData } from "./types";
 
 interface FlowState {
+  /** The open flow's id in the repository; null before one is opened. */
+  flowId: string | null;
+  name: string;
+  /** The stored updatedAt this tab loaded or last wrote; the other-tab guard compares against it. */
+  loadedUpdatedAt: string | null;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  /** Replace the canvas with a stored flow. */
+  openFlow: (file: FlowFile) => void;
+  setName: (name: string) => void;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
@@ -92,86 +99,86 @@ export function buildGraph(
   return { nodes, edges, ids };
 }
 
+/**
+ * The open flow, live. Saving is lib/flows/autosave.ts's job: the store holds
+ * one flow at a time and knows nothing about where flows are kept.
+ */
 export const useFlowStore = create<FlowState>()(
-  persist(
-    (set, get) => ({
-      nodes: [],
-      edges: [],
-      onNodesChange: (changes) => {
-        set({ nodes: applyNodeChanges(changes, get().nodes) as FlowNode[] });
-      },
-      onEdgesChange: (changes) => {
-        set({ edges: applyEdgeChanges(changes, get().edges) });
-      },
-      onConnect: (connection) => {
-        set({
-          edges: addEdge(
-            { ...connection, animated: false, style: { stroke: "#94a3b8" } },
-            get().edges
-          ),
-        });
-      },
-      addNode: (kind, position) => {
-        const id = nextId(kind);
-        const newNode = {
-          id,
-          type: kind,
-          position,
-          data: initialData(kind),
-        } as FlowNode;
-        set({ nodes: [...get().nodes, newNode] });
-        return id;
-      },
-      addReference: (position, data) => {
-        const id = nextId("reference");
-        const node: FlowNode = {
-          id,
-          type: "reference",
-          position,
-          data: { ...initialData("reference"), ...data },
-        };
-        set({ nodes: [...get().nodes, node] });
-        return id;
-      },
-      loadGraph: (doc, { origin }) => {
-        const { nodes, edges, ids } = buildGraph(doc, origin);
-        get().addGraph(nodes, edges);
-        return ids;
-      },
-      addGraph: (nodes, edges) => {
-        set({ nodes: [...get().nodes, ...nodes], edges: [...get().edges, ...edges] });
-      },
-      updateNodeData: (id, data) => {
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === id ? ({ ...n, data: { ...n.data, ...data } } as FlowNode) : n
-          ),
-        });
-      },
-      setNodeStatus: (id, status, error) => {
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === id
-              ? ({ ...n, data: { ...n.data, status, error } } as FlowNode)
-              : n
-          ),
-        });
-      },
-      deleteNode: (id) => {
-        set({
-          nodes: get().nodes.filter((n) => n.id !== id),
-          edges: get().edges.filter((e) => e.source !== id && e.target !== id),
-        });
-      },
-      reset: () => set({ nodes: [], edges: [] }),
-    }),
-    {
-      name: "flow-builder-state",
-      partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
-      merge: (persisted, current) => {
-        const saved = (persisted ?? {}) as Partial<Pick<FlowState, "nodes" | "edges">>;
-        return { ...current, ...saved, nodes: markLostClips(saved.nodes ?? current.nodes) };
-      },
-    }
-  )
+  (set, get) => ({
+    flowId: null,
+    name: "Untitled flow",
+    loadedUpdatedAt: null,
+    nodes: [],
+    edges: [],
+    openFlow: (file) =>
+      set({ flowId: file.id, name: file.name, loadedUpdatedAt: file.updatedAt, nodes: file.nodes, edges: file.edges }),
+    setName: (name) => set({ name }),
+    onNodesChange: (changes) => {
+      set({ nodes: applyNodeChanges(changes, get().nodes) as FlowNode[] });
+    },
+    onEdgesChange: (changes) => {
+      set({ edges: applyEdgeChanges(changes, get().edges) });
+    },
+    onConnect: (connection) => {
+      set({
+        edges: addEdge(
+          { ...connection, animated: false, style: { stroke: "#94a3b8" } },
+          get().edges
+        ),
+      });
+    },
+    addNode: (kind, position) => {
+      const id = nextId(kind);
+      const newNode = {
+        id,
+        type: kind,
+        position,
+        data: initialData(kind),
+      } as FlowNode;
+      set({ nodes: [...get().nodes, newNode] });
+      return id;
+    },
+    addReference: (position, data) => {
+      const id = nextId("reference");
+      const node: FlowNode = {
+        id,
+        type: "reference",
+        position,
+        data: { ...initialData("reference"), ...data },
+      };
+      set({ nodes: [...get().nodes, node] });
+      return id;
+    },
+    loadGraph: (doc, { origin }) => {
+      const { nodes, edges, ids } = buildGraph(doc, origin);
+      get().addGraph(nodes, edges);
+      return ids;
+    },
+    addGraph: (nodes, edges) => {
+      set({ nodes: [...get().nodes, ...nodes], edges: [...get().edges, ...edges] });
+    },
+    updateNodeData: (id, data) => {
+      set({
+        nodes: get().nodes.map((n) =>
+          n.id === id ? ({ ...n, data: { ...n.data, ...data } } as FlowNode) : n
+        ),
+      });
+    },
+    setNodeStatus: (id, status, error) => {
+      set({
+        nodes: get().nodes.map((n) =>
+          n.id === id
+            ? ({ ...n, data: { ...n.data, status, error } } as FlowNode)
+            : n
+        ),
+      });
+    },
+    deleteNode: (id) => {
+      set({
+        nodes: get().nodes.filter((n) => n.id !== id),
+        edges: get().edges.filter((e) => e.source !== id && e.target !== id),
+      });
+    },
+    reset: () => set({ nodes: [], edges: [] }),
+  })
 );

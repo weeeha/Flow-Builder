@@ -5,6 +5,7 @@ import type { FlowDoc } from "../flow-doc";
 import { handleId, parseHandleId } from "../handles";
 import type { FlowNode, NodeKind } from "../types";
 import fixture from "../stubs/clip-analysis.json";
+import { newFlowFile } from "../flows/format";
 
 const nodeAt = (id: string) => useFlowStore.getState().nodes.find((n) => n.id === id)!;
 
@@ -110,5 +111,22 @@ describe("loadGraph", () => {
     expect(data.model).toBe(initialData("video").model);
     expect(data.duration).toBe(initialData("video").duration);
     expect(data).not.toHaveProperty("style");
+  });
+});
+
+describe("openFlow", () => {
+  it("replaces the canvas with the flow and remembers which flow it is", () => {
+    useFlowStore.getState().addNode("image", { x: 0, y: 0 });
+    const file = newFlowFile("Lighthouse", [{ id: "video-1", type: "video", position: { x: 5, y: 5 }, data: initialData("video") } as FlowNode]);
+    useFlowStore.getState().openFlow(file);
+    const s = useFlowStore.getState();
+    expect(s.nodes.map((n) => n.id)).toEqual(["video-1"]);
+    expect(s).toMatchObject({ flowId: file.id, name: "Lighthouse", loadedUpdatedAt: file.updatedAt });
+  });
+
+  it("no longer writes the canvas to localStorage", () => {
+    localStorage.clear();
+    useFlowStore.getState().addNode("image", { x: 0, y: 0 });
+    expect(localStorage.getItem("flow-builder-state")).toBeNull();
   });
 });

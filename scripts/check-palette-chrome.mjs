@@ -2,6 +2,7 @@
 // Every kind in NODE_KINDS must be addable from the toolbar and mount a card whose
 // header carries the table's label. Guards the derivation in node-toolbar.tsx and
 // lib/store.ts: both read the table rather than their own lists.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -84,21 +85,7 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("Boolean(document.querySelector('.react-flow'))")) break;
-  }
-  await evaluate("localStorage.clear()");
-  const loaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
-  await send("Page.reload");
-  await loaded;
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('.react-flow__controls'))")) break;
-  }
+  await openFlowCdp({ send, evaluate, sleep }, APP);
 
   const buttons = await evaluate(
     "[...document.querySelectorAll('button[title^=\"Add \"]')].map(b => b.title.replace(/^Add /, ''))"

@@ -14,6 +14,7 @@
 // ANALYZE_TIMEOUT ms (default 120000; a live model takes 17 to 29s), and the
 // checks compare the cards with what the route answered. ANALYZE_DELAY holds
 // each answer that many ms in the page, to act out a slow model in stub mode.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -117,23 +118,9 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("Boolean(document.querySelector('.react-flow'))")) break;
-  }
-  await evaluate(`localStorage.setItem("flow-builder-state", ${JSON.stringify(JSON.stringify({ state: SAVED, version: 0 }))})`);
-  const loaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
-  await send("Page.reload");
-  await loaded;
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('.react-flow__controls'))")) break;
-  }
+  await openFlowCdp({ send, evaluate, sleep }, APP, legacyFile(SAVED.nodes, SAVED.edges));
 
-  const stored = () => evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state`);
+  const stored = () => evaluate(`${STATE_JS}`);
 
   // A synthetic drag carrying a real File, fired where a person would drop it.
   await evaluate(`(() => {
@@ -257,7 +244,7 @@ try {
   };
   const overlaps = await overlapping();
   check("no two cards overlap", overlaps.length === 0, overlaps.join(", "));
-  const storedKB = await evaluate(`Math.round(localStorage.getItem("flow-builder-state").length / 1024)`);
+  const storedKB = await evaluate(`Math.round(JSON.stringify(${STATE_JS}).length / 1024)`);
   console.log(`INFO persisted graph size with one clip: ${storedKB}KB`);
 
   // Reduced motion: a second clip's graph lands all at once.

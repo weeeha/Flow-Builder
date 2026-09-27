@@ -3,6 +3,7 @@
 // every handle where the cards used to put it, then Run all takes it to done in
 // stub mode. Guards slice 3: BaseNode now draws the static ports from NODE_KINDS
 // and the executor runs each kind through RUNNERS.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -100,21 +101,7 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("Boolean(document.querySelector('.react-flow'))")) break;
-  }
-  await evaluate(`localStorage.setItem("flow-builder-state", ${JSON.stringify(JSON.stringify({ state: SAVED, version: 0 }))})`);
-  const loaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
-  await send("Page.reload");
-  await loaded;
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('.react-flow__controls'))")) break;
-  }
+  await openFlowCdp({ send, evaluate, sleep }, APP, legacyFile(SAVED.nodes, SAVED.edges));
 
   const edges = await evaluate("document.querySelectorAll('.react-flow__edge').length");
   check("every saved edge is drawn after the reload", edges === SAVED.edges.length, `${edges} edges`);
@@ -132,14 +119,14 @@ try {
   let statuses = {};
   for (let i = 0; i < 60; i++) {
     await sleep(500);
-    statuses = await evaluate(`Object.fromEntries(JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.map(n => [n.id, n.data.status]))`);
+    statuses = await evaluate(`Object.fromEntries(${STATE_JS}.nodes.map(n => [n.id, n.data.status]))`);
     if (Object.values(statuses).every((s) => s === "done" || s === "error")) break;
   }
   check("Run all takes every node to done", found && Object.values(statuses).every((s) => s === "done"), JSON.stringify(statuses));
-  const comp = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "composition-a").data`);
-  const video = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "video-a").data`);
+  const comp = await evaluate(`${STATE_JS}.nodes.find(n => n.id === "composition-a").data`);
+  const video = await evaluate(`${STATE_JS}.nodes.find(n => n.id === "video-a").data`);
   check("composition picks up the video's output", Boolean(comp.videoUrl) && comp.videoUrl === video.outputUrl, comp.videoUrl ?? "none");
-  const tts = await evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state.nodes.find(n => n.id === "tts-a").data`);
+  const tts = await evaluate(`${STATE_JS}.nodes.find(n => n.id === "tts-a").data`);
   check("composition picks up the tts's audio", Boolean(comp.audioUrl) && comp.audioUrl === tts.outputUrl, comp.audioUrl ?? "none");
 
   // Call click() on the control itself: Next's dev badge sits on top of Fit View,
