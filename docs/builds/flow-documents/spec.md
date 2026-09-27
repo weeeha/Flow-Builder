@@ -61,7 +61,7 @@ export interface FlowFile {
 - **Export:** the same shape, pretty-printed, named `<name>.flow.json`. Session-only clip URLs (`blob:`) are dropped and the card marked missing, as a reload already does.
 
 ### Storage
-- IndexedDB through `idb-keyval` (6.3.0, one small dependency), database `flow-builder`, two stores: `flows` (id to `FlowFile`) and `index` (id to `FlowSummary { id, name, createdAt, updatedAt, nodeCount, preview }`). The home page reads only `index`, so it never loads every flow's full data.
+- IndexedDB through `idb-keyval` (6.3.0, one small dependency), database `flow-builder`, one store `kv` (idb-keyval opens one store per database) with two kinds of key: `flow:<id>` (a `FlowFile`) and `index` (id to `FlowSummary { id, name, createdAt, updatedAt, nodeCount, preview }`). The home page reads only `index`, so it never loads every flow's full data.
 - `saveFlow` writes both in one transaction. `updatedAt` changes on every save.
 - IndexedDB works in Chrome and Safari; Safari's private windows are part of the browser pass rather than assumed. If it is unavailable or throws, the home page shows "Flows can't be saved in this browser window" and the canvas works unsaved, with "Not saved" in its header.
 
@@ -69,7 +69,7 @@ export interface FlowFile {
 `previewOf` stores each node's kind and position and each edge's two node indexes, plus `image`: the first `http(s)` `outputUrl` among image nodes, if any. A card draws the image when there is one and otherwise the graph at one shared scale (the draft's rule, so small graphs stay small). `data:` URLs are never used as thumbnails.
 
 ### Legacy import
-On first load of any route, if the `flows` store is empty, the `flow-builder-legacy-imported` flag is unset, and `flow-builder-state` holds at least one node: create "Untitled flow" from it (through `migrate` from version 0 and `markLostClips`), set the flag, and keep `flow-builder-state` untouched as a backup. Runs once; an empty legacy state creates nothing.
+On first load of any route, if there are no flows yet, the `flow-builder-legacy-imported` flag is unset, and `flow-builder-state` holds at least one node: create "Untitled flow" from it (through `migrate` from version 0 and `markLostClips`), set the flag, and keep `flow-builder-state` untouched as a backup. Runs once; an empty legacy state creates nothing.
 
 ### Routes and navigation
 - `/`: home. `/templates`: all templates. `/flows/[id]`: canvas. An unknown id shows "This flow doesn't exist" with a link home.
