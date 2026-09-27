@@ -100,6 +100,8 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
+  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
   await send("Page.navigate", { url: APP });
   for (let i = 0; i < 40; i++) {
     await sleep(250);

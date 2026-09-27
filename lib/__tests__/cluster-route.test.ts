@@ -39,6 +39,9 @@ const model = vi.mocked(generateText);
 
 beforeEach(() => {
   model.mockReset();
+  // Stub mode unless a test grants access: no key, no Vercel OIDC token.
+  vi.stubEnv("AI_GATEWAY_API_KEY", "");
+  vi.stubEnv("VERCEL_OIDC_TOKEN", "");
 });
 
 afterEach(() => {

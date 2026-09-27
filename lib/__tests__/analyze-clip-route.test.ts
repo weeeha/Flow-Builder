@@ -64,6 +64,7 @@ describe("the stub fixture", () => {
 describe("POST /api/analyze/clip", () => {
   it("answers from the fixture as a first pass when no LLM key is set", async () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "");
+    vi.stubEnv("VERCEL_OIDC_TOKEN", "");
     const res = await post(clip);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ...fixture, path: "first pass", stub: true });
@@ -71,6 +72,7 @@ describe("POST /api/analyze/clip", () => {
 
   it("rejects a request with no frames", async () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "");
+    vi.stubEnv("VERCEL_OIDC_TOKEN", "");
     const res = await post({ ...clip, frames: [] });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("No frames to read");

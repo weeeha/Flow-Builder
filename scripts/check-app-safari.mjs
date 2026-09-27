@@ -92,6 +92,8 @@ const overlaps = () => exec(`
 try {
   await wd("POST", S("/window/rect"), { x: 0, y: 0, width: 1440, height: 900 });
   await wd("POST", S("/url"), { url: APP });
+  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
+  await wd("POST", S("/cookie"), { cookie: { name: "flow-stub", value: "1", path: "/" } });
   await sleep(1500);
 
   // 1. A graph saved before the refactor.
