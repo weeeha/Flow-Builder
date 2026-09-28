@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flows home · draft</title>
+<style>
+  /* Values copied from Flow Builder's app/globals.css (Minimal Design System) on main 8664e70. */
+  :root {
+    --base-0: #ffffff; --base-50: #fafafa; --base-100: #f5f5f5;
+    --ink-200: #e4e4e7; --ink-300: #d4d4d8; --ink-400: #a1a1aa; --ink-500: #71717a;
+    --ink-600: #52525b; --ink-800: #27272a; --ink-950: #09090b;
+    --accent-solid: #171717; --accent-on-solid: #fafafa;
+    --surface-page: var(--base-0); --surface-sidebar: var(--base-50); --surface-card: var(--base-0); --surface-secondary: var(--base-100);
+    --text-primary: var(--ink-950); --text-secondary: var(--ink-600); --text-tertiary: var(--ink-500);
+    --text-destructive: #c10007;
+    --border: var(--ink-200); --border-hover: var(--ink-300); --ring: var(--ink-500);
+    --radius-button: 8px; --radius-card: 16px;
+    --elevation-popover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --handle-text: #6b7280; --handle-image: #3b82f6; --handle-video: #8b5cf6; --handle-audio: #ec4899;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-page); color: var(--text-primary); font: 14px/1.45 var(--font-sans); }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+  svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  /* Draft chrome: outside the design. */
+  .draftbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px dashed var(--border-hover); background: var(--surface-sidebar); font-size: 12px; color: var(--text-tertiary); }
+  .draftbar b { color: var(--text-secondary); font-weight: 600; }
+  .draftbar button { border: 1px solid var(--border); background: var(--base-0); border-radius: var(--radius-button); padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  .draftbar button[aria-pressed="true"] { background: var(--accent-solid); color: var(--accent-on-solid); border-color: var(--accent-solid); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: var(--radius-button); border: 1px solid var(--border); background: var(--surface-card); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: var(--border-hover); }
+  .btn.primary { background: var(--accent-solid); color: var(--accent-on-solid); border-color: var(--accent-solid); }
+  .btn.primary:hover { background: var(--ink-800); border-color: var(--ink-800); }
+  .icon-btn { width: 32px; height: 32px; display: inline-grid; place-items: center; border-radius: var(--radius-button); border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; flex: none; }
+  .icon-btn:hover { background: var(--surface-secondary); }
+
+  /* Shell */
+  .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100dvh - 37px); }
+  .sidebar { background: var(--surface-sidebar); border-right: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+  .brand { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 4px 0 8px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+  .nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--radius-button); color: var(--text-secondary); font-size: 14px; }
+  .nav a:hover { background: var(--surface-secondary); }
+  .nav a[aria-current="page"] { background: var(--ink-200); color: var(--text-primary); font-weight: 500; }
+  .main { min-width: 0; }
+  .content { max-width: 1200px; margin: 0 auto; padding: 32px 40px 64px; }
+  .pagehead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0; }
+  h2 { font-size: 14px; font-weight: 600; margin: 40px 0 12px; }
+  .row-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .row-head a { font-size: 13px; color: var(--text-secondary); }
+  .row-head a:hover { color: var(--text-primary); }
+
+  /* Templates row */
+  .templates { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 16px; overflow-x: auto; padding-bottom: 4px; }
+  .template { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; }
+  .template .thumb { border-radius: var(--radius-card); border: 1px solid var(--border); }
+  .template:hover .thumb { border-color: var(--border-hover); }
+  .template .name { display: block; margin-top: 8px; font-size: 14px; font-weight: 500; }
+  .template .sub { display: block; font-size: 12px; color: var(--text-tertiary); }
+
+  /* Recent flows */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+  .search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-button); background: var(--surface-card); color: var(--text-tertiary); }
+  .search input { border: 0; outline: 0; background: transparent; width: 100%; font-size: 14px; color: var(--text-primary); }
+  .search:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .pill { display: inline-flex; align-items: center; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-button); background: var(--surface-card); font-size: 13px; overflow: hidden; }
+  .pill span { padding: 0 10px; color: var(--text-secondary); }
+  .pill select { height: 100%; border: 0; border-left: 1px solid var(--border); background: transparent; padding: 0 8px; font-size: 13px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px 20px; }
+  .card { position: relative; }
+  .card .thumb { border-radius: var(--radius-card); border: 1px solid var(--border); }
+  .card a.open { display: block; border-radius: var(--radius-card); }
+  .card a.open:hover .thumb { border-color: var(--border-hover); }
+  .meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-top: 10px; }
+  .name { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: 13px; color: var(--text-tertiary); margin-top: 1px; }
+  .card .icon-btn { margin: -4px -6px 0 0; }
+
+  .thumb { display: block; width: 100%; aspect-ratio: 16 / 9; background-color: var(--surface-sidebar);
+           background-image: radial-gradient(var(--ink-300) 0.8px, transparent 0.8px); background-size: 12px 12px; }
+
+  .menu { position: absolute; right: 0; top: calc(100% - 8px); z-index: 2; min-width: 188px; padding: 4px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-button); box-shadow: var(--elevation-popover); }
+  .menu button { display: flex; width: 100%; align-items: center; gap: 8px; padding: 6px 8px; border: 0; background: transparent; border-radius: 6px; font-size: 13px; text-align: left; cursor: pointer; }
+  .menu button:hover { background: var(--surface-secondary); }
+  .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+  .menu .danger { color: var(--text-destructive); }
+
+  .empty { display: grid; place-items: center; gap: 4px; padding: 56px 24px; text-align: center; border: 1px solid var(--border); border-radius: var(--radius-card); }
+  .empty strong { font-size: 15px; font-weight: 600; }
+  .empty p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
+  .empty .actions { display: flex; gap: 8px; justify-content: center; }
+
+  /* Canvas header frame */
+  .frame-label { margin: 48px 0 8px; font-size: 12px; color: var(--text-tertiary); }
+  .canvas-stage { position: relative; height: 160px; border: 1px solid var(--border); border-radius: var(--radius-card); background-color: var(--base-50);
+                  background-image: radial-gradient(#d4d4d4 1px, transparent 1px); background-size: 16px 16px; overflow: hidden; }
+  .chip { position: absolute; left: 16px; top: 16px; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 6px 0 4px; background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-card); font-size: 13px; }
+  .chip .back { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px; border-radius: var(--radius-button); color: var(--text-secondary); }
+  .chip .back:hover { background: var(--surface-secondary); }
+  .chip .sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; }
+  .chip input.title { width: 152px; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; font-weight: 600; background: transparent; }
+  .chip input.title:hover { border-color: var(--border); }
+  .chip .saved { font-size: 12px; color: var(--text-tertiary); padding: 0 6px; min-width: 56px; }
+  .chip .icon-btn { width: 30px; height: 30px; }
+  .chip .icon-btn[disabled] { color: var(--ink-400); cursor: default; background: transparent; }
+
+  /* Narrow: the sidebar folds into a top bar with a menu button. */
+  .mobilebar { display: none; }
+  @media (max-width: 720px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { display: none; }
+    .mobilebar { display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .content { padding: 20px 16px 48px; }
+    .pagehead .btn .hide-narrow { display: none; }
+    .chip input.title { width: 96px; }
+    .chip .saved { display: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+  <symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+  <symbol id="left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+  <symbol id="redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></symbol>
+  <symbol id="i-flows" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h2.5a2 2 0 0 1 2 2V14"/></symbol>
+  <symbol id="i-templates" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+  <symbol id="menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+</svg>
+
+<div class="draftbar" role="toolbar" aria-label="Draft controls">
+  <b>Draft, not the app.</b> Flow names and times are sample data. Shell after ElevenLabs Flows and Runway Workflows.
+  <span style="flex:1"></span>
+  <button type="button" data-state="populated" aria-pressed="true">With flows</button>
+  <button type="button" data-state="empty" aria-pressed="false">First run</button>
+</div>
+
+<div class="shell">
+  <nav class="sidebar" aria-label="Main">
+    <div class="brand">Flow Builder <button class="icon-btn" type="button" aria-label="Collapse sidebar"><svg class="i"><use href="#panel"/></svg></button></div>
+    <div class="nav">
+      <a href="#" aria-current="page"><svg class="i"><use href="#i-flows"/></svg>Flows</a>
+      <a href="#"><svg class="i"><use href="#i-templates"/></svg>Templates</a>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="mobilebar">Flow Builder <button class="icon-btn" type="button" aria-label="Open menu"><svg class="i"><use href="#menu"/></svg></button></div>
+    <div class="content">
+      <div class="pagehead">
+        <h1>Flows</h1>
+        <div style="display:flex; gap:8px">
+          <button class="btn" type="button"><svg class="i"><use href="#upload"/></svg><span class="hide-narrow">Import</span></button>
+          <button class="btn primary" type="button"><svg class="i"><use href="#plus"/></svg>New flow</button>
+        </div>
+      </div>
+
+      <div class="row-head"><h2>Templates</h2><a href="#">View all <svg class="i" style="width:14px;height:14px;vertical-align:-2px"><use href="#right"/></svg></a></div>
+      <div class="templates" id="templates"></div>
+
+      <h2>Recent flows</h2>
+      <section data-show="populated">
+        <label class="search"><svg class="i"><use href="#search"/></svg><input type="search" placeholder="Search flows" aria-label="Search flows"></label>
+        <div class="filters">
+          <label class="pill"><span>Sort by</span><select aria-label="Sort flows"><option>Last edited</option><option>Name</option><option>Created</option></select></label>
+        </div>
+        <div class="grid" id="flows"></div>
+      </section>
+      <section data-show="empty" hidden>
+        <div class="empty">
+          <strong>No flows yet</strong>
+          <p>Start from a blank canvas, a template above, or a .flow.json file.</p>
+          <div class="actions">
+            <button class="btn" type="button"><svg class="i"><use href="#upload"/></svg>Import</button>
+            <button class="btn primary" type="button"><svg class="i"><use href="#plus"/></svg>New flow</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="frame-label">Canvas header at /flows/[id], replacing today's "Flows | Untitled flow" chip</div>
+      <div class="canvas-stage">
+        <div class="chip">
+          <a class="back" href="#"><svg class="i"><use href="#left"/></svg>Flows</a>
+          <span class="sep"></span>
+          <input class="title" value="Lighthouse at dusk" aria-label="Flow name">
+          <span class="saved" aria-live="polite">Saved</span>
+          <span class="sep"></span>
+          <button class="icon-btn" type="button" aria-label="Undo (Cmd+Z)" title="Undo (Cmd+Z)"><svg class="i"><use href="#undo"/></svg></button>
+          <button class="icon-btn" type="button" aria-label="Redo (Cmd+Shift+Z)" title="Redo (Cmd+Shift+Z)" disabled><svg class="i"><use href="#redo"/></svg></button>
+          <button class="icon-btn" type="button" aria-label="Export .flow.json" title="Export .flow.json"><svg class="i"><use href="#download"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Thumbnails drawn from a flow's stored node positions. A flow with a generated
+  // image would show that image instead; the draft has none to show.
+  const PORT = { image: ["text","image","image"], video: ["text","image","video"], tts: ["text",null,"audio"],
+                 composition: ["video","audio",null], cluster: ["text",null,"text"], reference: [null,null,"video"] };
+  const COLOR = { text: "var(--handle-text)", image: "var(--handle-image)", video: "var(--handle-video)", audio: "var(--handle-audio)" };
+  const W = { image: 64, video: 72, tts: 64, composition: 84, cluster: 76, reference: 64 };
+  function graph(nodes, edges) {
+    const minX = Math.min(...nodes.map(n => n.x)), minY = Math.min(...nodes.map(n => n.y));
+    const maxX = Math.max(...nodes.map(n => n.x + W[n.k])), maxY = Math.max(...nodes.map(n => n.y)) + 44;
+    const pad = 24, vw = maxX - minX + pad * 2, vh = maxY - minY + pad * 2;
+    const at = n => ({ x: n.x - minX + pad, y: n.y - minY + pad });
+    const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    // One scale for every thumbnail: a small graph stays small instead of filling the card.
+    const bw = Math.max(vw, vh * 16 / 9, 420), bh = bw * 9 / 16;
+    let s = `<svg class="thumb" viewBox="${-(bw - vw) / 2} ${-(bh - vh) / 2} ${bw} ${bh}" aria-hidden="true">`;
+    for (const [a, b] of edges) {
+      const p = at(byId[a]), q = at(byId[b]);
+      const x1 = p.x + W[byId[a].k], y1 = p.y + 22, x2 = q.x, y2 = q.y + 16, mx = (x1 + x2) / 2;
+      s += `<path d="M${x1} ${y1}C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" stroke="var(--ink-400)" stroke-width="1.2" fill="none"/>`;
+    }
+    for (const n of nodes) {
+      const p = at(n), [i1, i2, o] = PORT[n.k];
+      s += `<rect x="${p.x}" y="${p.y}" width="${W[n.k]}" height="44" rx="7" fill="var(--base-0)" stroke="var(--ink-200)"/>`;
+      s += `<rect x="${p.x + 8}" y="${p.y + 8}" width="${W[n.k] * 0.45}" height="4" rx="2" fill="var(--ink-200)"/>`;
+      if (i1) s += `<circle cx="${p.x}" cy="${p.y + 16}" r="3" fill="${COLOR[i1]}"/>`;
+      if (i2) s += `<circle cx="${p.x}" cy="${p.y + 30}" r="3" fill="${COLOR[i2]}"/>`;
+      if (o) s += `<circle cx="${p.x + W[n.k]}" cy="${p.y + 22}" r="3" fill="${COLOR[o]}"/>`;
+    }
+    return s + "</svg>";
+  }
+
+  const FLOWS = [
+    { name: "Lighthouse at dusk", sub: "Updated 12 min ago · 5 nodes", menu: true,
+      nodes: [{id:"r",k:"reference",x:0,y:40},{id:"i",k:"image",x:110,y:0},{id:"t",k:"tts",x:110,y:80},{id:"v",k:"video",x:210,y:0},{id:"c",k:"composition",x:320,y:30}],
+      edges: [["i","v"],["v","c"],["t","c"]] },
+    { name: "Untitled flow", sub: "Updated yesterday · 4 nodes",
+      nodes: [{id:"i",k:"image",x:0,y:0},{id:"v",k:"video",x:110,y:0},{id:"t",k:"tts",x:110,y:80},{id:"c",k:"composition",x:220,y:30}],
+      edges: [["i","v"],["v","c"],["t","c"]] },
+    { name: "Harbor ideas, round two of camera moves and weather", sub: "Updated 3 days ago · 4 nodes",
+      nodes: [{id:"k",k:"cluster",x:0,y:30},{id:"i",k:"image",x:120,y:0},{id:"v",k:"video",x:120,y:70},{id:"i2",k:"image",x:230,y:0}],
+      edges: [["k","i"],["k","v"],["i","i2"]] },
+    { name: "Voiceover test", sub: "Updated Sep 12 · 2 nodes",
+      nodes: [{id:"t",k:"tts",x:0,y:0},{id:"c",k:"composition",x:110,y:0}], edges: [["t","c"]] },
+  ];
+  document.getElementById("flows").innerHTML = FLOWS.map(f => `
+    <article class="card">
+      <a class="open" href="#" aria-label="Open ${f.name}">${graph(f.nodes, f.edges)}</a>
+      <div class="meta">
+        <div style="min-width:0"><div class="name" title="${f.name}">${f.name}</div><div class="sub">${f.sub}</div></div>
+        <button class="icon-btn" type="button" aria-label="More for ${f.name}" aria-haspopup="menu" aria-expanded="${!!f.menu}"><svg class="i"><use href="#more"/></svg></button>
+      </div>
+      ${f.menu ? `<div class="menu" role="menu">
+        <button role="menuitem"><svg class="i"><use href="#pencil"/></svg>Rename</button>
+        <button role="menuitem"><svg class="i"><use href="#copy"/></svg>Duplicate</button>
+        <button role="menuitem"><svg class="i"><use href="#download"/></svg>Export .flow.json</button>
+        <hr><button role="menuitem" class="danger"><svg class="i"><use href="#trash"/></svg>Delete flow</button></div>` : ""}
+    </article>`).join("");
+
+  const TEMPLATES = [
+    { name: "Image to video", sub: "Image into video into a composition",
+      nodes: [{id:"i",k:"image",x:0,y:0},{id:"v",k:"video",x:100,y:0},{id:"c",k:"composition",x:200,y:0}], edges: [["i","v"],["v","c"]] },
+    { name: "Video with voiceover", sub: "Video and speech into one composition",
+      nodes: [{id:"v",k:"video",x:0,y:0},{id:"t",k:"tts",x:0,y:70},{id:"c",k:"composition",x:110,y:30}], edges: [["v","c"],["t","c"]] },
+    { name: "Ideas to images", sub: "A concept cluster feeding two images",
+      nodes: [{id:"k",k:"cluster",x:0,y:30},{id:"i",k:"image",x:110,y:0},{id:"i2",k:"image",x:110,y:70}], edges: [["k","i"],["k","i2"]] },
+    { name: "Recreate a clip", sub: "Opens ready for a dropped clip",
+      nodes: [{id:"r",k:"reference",x:0,y:0}], edges: [] },
+  ];
+  document.getElementById("templates").innerHTML = TEMPLATES.map(t => `
+    <button class="template" type="button">${graph(t.nodes, t.edges)}<span class="name">${t.name}</span><span class="sub">${t.sub}</span></button>`).join("");
+
+  for (const b of document.querySelectorAll(".draftbar [data-state]")) {
+    b.addEventListener("click", () => {
+      for (const o of document.querySelectorAll(".draftbar [data-state]")) o.setAttribute("aria-pressed", String(o === b));
+      for (const s of document.querySelectorAll("[data-show]")) s.hidden = s.dataset.show !== b.dataset.state;
+    });
+  }
+</script>
+</body>
+</html>

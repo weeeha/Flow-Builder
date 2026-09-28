@@ -3,6 +3,7 @@
 // Enter; a non-video file turned away on the card; a clip over a minute read
 // from its first 60s; and a failed analysis offering the empty image → video
 // skeleton, which lands on request. Clips are made with ffmpeg.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -88,23 +89,9 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("Boolean(document.querySelector('.react-flow'))")) break;
-  }
-  await evaluate("localStorage.clear()");
-  const loaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
-  await send("Page.reload");
-  await loaded;
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('.react-flow__controls'))")) break;
-  }
+  await openFlowCdp({ send, evaluate, sleep }, APP);
 
-  const stored = () => evaluate(`JSON.parse(localStorage.getItem("flow-builder-state")).state`);
+  const stored = () => evaluate(`${STATE_JS}`);
   const refs = async () => (await stored()).nodes.filter((n) => n.type === "reference");
   const settled = async (count) => {
     for (let i = 0; i < 80; i++) {

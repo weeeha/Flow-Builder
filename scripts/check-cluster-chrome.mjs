@@ -2,6 +2,7 @@
 // Drives headless Chrome (reports visibilityState "visible") over the DevTools
 // protocol with real Input events and runs the same task-11 checks as
 // safari-check.mjs.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -94,21 +95,7 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("Boolean(document.querySelector('button[title=\"Add Concept Cluster\"]'))")) break;
-  }
-  await evaluate("localStorage.clear()");
-  const loaded = new Promise((resolve) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") resolve(); }; });
-  await send("Page.reload");
-  await loaded;
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    if (await evaluate("document.readyState === 'complete' && Boolean(document.querySelector('button[title=\"Add Concept Cluster\"]'))")) break;
-  }
+  await openFlowCdp({ send, evaluate, sleep }, APP);
   check("page reports visible", (await evaluate("document.visibilityState")) === "visible");
 
   await click('button[title="Add Concept Cluster"]');

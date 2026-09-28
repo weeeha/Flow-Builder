@@ -1,6 +1,7 @@
 // Usage: pnpm dev, then `node scripts/check-inspector-chrome.mjs` (env: APP_URL, CDP_PORT, OUT).
 // The inspector panel: appears for one selected node, edits it, closes on deselect,
 // and stays non-modal so the canvas keeps working underneath.
+import { STATE_JS, legacyFile, openFlowCdp } from "./lib/flow-session.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -64,13 +65,7 @@ try {
   await new Promise((res, rej) => { ws.addEventListener("open", res); ws.addEventListener("error", rej); });
   await send("Page.enable"); await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await send("Network.setCookie", { name: "flow-stub", value: "1", url: new URL(APP).origin });
-  await send("Page.navigate", { url: APP });
-  for (let i = 0; i < 40; i++) { await sleep(250); if (await evaluate("Boolean(document.querySelector('.react-flow'))")) break; }
-  await evaluate(`localStorage.setItem("flow-builder-state", ${JSON.stringify(JSON.stringify(saved))})`);
-  const loaded = new Promise((r) => { onEvent = (m) => { if (m.method === "Page.loadEventFired") r(); }; });
-  await send("Page.reload"); await loaded;
+  await openFlowCdp({ send, evaluate, sleep }, APP, saved);
   for (let i = 0; i < 40; i++) { await sleep(250); if (await evaluate("document.querySelectorAll('.react-flow__node').length === 3")) break; }
 
   check("no panel until something is selected", (await evaluate("document.querySelectorAll('aside').length")) === 0);
@@ -90,13 +85,13 @@ try {
   await sleep(400);
   const headerAfter = await evaluate("document.querySelector('.react-flow__node-video').innerText.split('\\n')[1]");
   check("picking a model updates the card header", headerBefore !== headerAfter && /Gen-4.5/.test(headerAfter), `${headerBefore} -> ${headerAfter}`);
-  check("the store kept the model id, not the label", (await evaluate("JSON.parse(localStorage.getItem('flow-builder-state')).state.nodes[0].data.model")) === "runway:gen4.5");
+  check("the store kept the model id, not the label", (await evaluate(`${STATE_JS}.nodes[0].data.model`)) === "runway:gen4.5");
 
   await click(trigger("duration"));
   await sleep(300);
   await clickOption("8s");
   await sleep(400);
-  const duration = await evaluate("JSON.parse(localStorage.getItem('flow-builder-state')).state.nodes[0].data.duration");
+  const duration = await evaluate(`${STATE_JS}.nodes[0].data.duration`);
   check("picking a duration writes a number, not a string", duration === 8, `${JSON.stringify(duration)} (${typeof duration})`);
 
   // The canvas stays live: click a second node and the panel follows it.

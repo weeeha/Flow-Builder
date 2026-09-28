@@ -4,6 +4,7 @@
 // task-11 checks: chips render, Tab reaches a chip with a visible focus ring,
 // Enter and Space toggle a pin, a pin adds a handle, "to video" lands a wired
 // node, a second pin's handle connects by a real drag, one group re-rolls alone.
+import { openFlowWd } from "./lib/flow-session.mjs";
 import { writeFileSync } from "node:fs";
 import { startSafari } from "./lib/safari.mjs";
 
@@ -33,6 +34,13 @@ const check = (name, ok, detail = "") => {
 const { sessionId: sid, end: endSafari } = await startSafari(wd);
 const S = (p) => `/session/${sid}${p}`;
 const exec = (script, args = []) => wd("POST", S("/execute/sync"), { script, args });
+const execAsync = (expr) =>
+  wd("POST", S("/execute/async"), {
+    script: `const done = arguments[arguments.length - 1]; Promise.resolve(${expr}).then(done, (e) => done({ __error: String(e) }));`,
+    args: [],
+  });
+const navigate = (url) => wd("POST", S("/url"), { url });
+const session = { exec, execAsync, navigate, sleep };
 const find = async (using, value) => (await wd("POST", S("/element"), { using, value }))[ELEMENT];
 const click = (el) => wd("POST", S(`/element/${el}/click`), {});
 const keys = (text) =>
@@ -53,11 +61,8 @@ const count = (sel) => exec("return document.querySelectorAll(arguments[0]).leng
 
 try {
   await wd("POST", S("/window/rect"), { x: 0, y: 0, width: 1440, height: 900 });
-  await wd("POST", S("/url"), { url: APP });
-  // Fixtures from every route, whatever keys the server holds (lib/stub.ts).
-  await wd("POST", S("/cookie"), { cookie: { name: "flow-stub", value: "1", path: "/" } });
-  await exec("localStorage.clear(); location.reload();");
-  await sleep(3000);
+  await openFlowWd(session, APP);
+  await sleep(500);
 
   await click(await find("css selector", 'button[title="Add Concept Cluster"]'));
   const textarea = await find("css selector", 'textarea[aria-label="Seed prompt"]');

@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import "fake-indexeddb/auto";
+import { describe, expect, it } from "vitest";
 import { markLostClips } from "../clip-upload";
 import { initialData } from "../node-kinds";
-import { useFlowStore } from "../store";
+import { createFlow, getFlow } from "../flows/repo";
 import type { FlowNode } from "../types";
 
 const reference = (clipUrl?: string): FlowNode => ({
@@ -34,14 +35,11 @@ describe("markLostClips", () => {
 });
 
 describe("a reload", () => {
-  afterEach(() => localStorage.clear());
-
+  // A flow reopens from the repository, and every save runs markLostClips, so a
+  // clip that never reached Blob storage comes back flagged instead of dead.
   it("flags a clip that never reached storage", async () => {
-    localStorage.setItem(
-      "flow-builder-state",
-      JSON.stringify({ state: { nodes: [reference("blob:http://localhost/dusk")], edges: [] }, version: 0 })
-    );
-    await useFlowStore.persist.rehydrate();
-    expect(useFlowStore.getState().nodes[0].data).toMatchObject({ clipMissing: true, clipUrl: undefined });
+    const saved = await createFlow("Dusk", { nodes: [reference("blob:http://localhost/dusk")], edges: [] });
+    const back = await getFlow(saved.id);
+    expect(back!.nodes[0].data).toMatchObject({ clipMissing: true, clipUrl: undefined });
   });
 });
