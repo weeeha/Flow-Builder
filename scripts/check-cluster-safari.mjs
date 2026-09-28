@@ -5,6 +5,7 @@
 // Enter and Space toggle a pin, a pin adds a handle, "to video" lands a wired
 // node, a second pin's handle connects by a real drag, one group re-rolls alone.
 import { writeFileSync } from "node:fs";
+import { startSafari } from "./lib/safari.mjs";
 
 const BASE = `http://localhost:${process.env.SD_PORT ?? 4445}`;
 const APP = process.env.APP_URL ?? "http://localhost:3000";
@@ -29,9 +30,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " · " + detail : ""}`);
 };
 
-const { sessionId: sid } = await wd("POST", "/session", {
-  capabilities: { alwaysMatch: { browserName: "Safari" } },
-});
+const { sessionId: sid, end: endSafari } = await startSafari(wd);
 const S = (p) => `/session/${sid}${p}`;
 const exec = (script, args = []) => wd("POST", S("/execute/sync"), { script, args });
 const find = async (using, value) => (await wd("POST", S("/element"), { using, value }))[ELEMENT];
@@ -150,7 +149,7 @@ try {
 } catch (err) {
   check("script completed", false, String(err.message ?? err));
 } finally {
-  await wd("DELETE", S(""), undefined).catch(() => {});
+  await endSafari();
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
