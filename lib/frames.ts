@@ -86,9 +86,46 @@ function once(target: EventTarget, event: string): Promise<void> {
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 /**
- * Grab n evenly spaced frames as 512px-wide JPEG data URLs. Waits one animation
- * frame after `seeked` before drawing, because Safari can fire it a tick before
- * the frame is paintable.
+ * How long to wait after `seeked` for the seek's frame to be presented before
+ * drawing anyway. Safari presents it 1-15ms after `seeked`; this only bounds a
+ * seek that never shows a new frame.
+ */
+export const FRAME_WAIT_MS = 500;
+
+/**
+ * Seek to `t` and resolve once its frame can be drawn. Safari can fire `seeked`
+ * while the video still shows the previous seek's picture, long enough that a
+ * draw one animation frame later copies a stale frame (seen on a cold first run:
+ * the 4.25s frame came out as 3.375s). requestVideoFrameCallback fires when the
+ * new frame is presented; it is registered before seeking, since an engine may
+ * present before `seeked`. Engines without it get one animation frame.
+ */
+export async function seekFrame(video: HTMLVideoElement, t: number): Promise<void> {
+  const seeked = once(video, "seeked");
+  if (typeof video.requestVideoFrameCallback !== "function") {
+    video.currentTime = t;
+    await seeked;
+    await nextFrame();
+    return;
+  }
+  let id = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const presented = new Promise<void>((resolve) => {
+    id = video.requestVideoFrameCallback(() => resolve());
+  });
+  try {
+    video.currentTime = t;
+    await seeked;
+    await Promise.race([presented, new Promise<void>((resolve) => (timer = setTimeout(resolve, FRAME_WAIT_MS)))]);
+  } finally {
+    clearTimeout(timer);
+    video.cancelVideoFrameCallback(id);
+  }
+}
+
+/**
+ * Grab n evenly spaced frames as 512px-wide JPEG data URLs. Each is drawn only
+ * once `seekFrame` sees it presented, because Safari can fire `seeked` early.
  */
 export async function sampleFrames(
   file: Blob,
@@ -115,10 +152,7 @@ export async function sampleFrames(
 
     const frames: SampledFrame[] = [];
     for (const t of sampleTimes(sampledSpan(duration), n)) {
-      const seeked = once(video, "seeked");
-      video.currentTime = t;
-      await seeked;
-      await nextFrame();
+      await seekFrame(video, t);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const frame = { t, dataUrl: canvas.toDataURL("image/jpeg", JPEG_QUALITY) };
       frames.push(frame);

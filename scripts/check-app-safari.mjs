@@ -147,7 +147,7 @@ try {
   const sent = (await exec("return window.__sent")) ?? { frames: [] };
   const distinct = new Set(sent.frames.map((f) => f.dataUrl)).size;
   check("8 real, different frames from 0 to just before the end", sent.frames.length === 8 && distinct === 8 && sent.frames[7].t > 5.9 && sent.frames.every((f) => f.dataUrl.length > 5000),
-    `${distinct} distinct · ${sent.frames.map((f) => f.t.toFixed(2)).join(" ")}`);
+    `${distinct} distinct · ${sent.frames.map((f) => `${f.t.toFixed(2)}s ${Math.round(f.dataUrl.length / 1024)}KB`).join(" ")}`);
   console.log(`INFO Safari's audio guess for a clip with a tone: ${JSON.stringify(ref?.data.hasAudio)}`);
   check("Safari detects the clip's audio track", ref?.data.hasAudio === true, JSON.stringify(ref?.data.hasAudio));
   const state = await stored();
