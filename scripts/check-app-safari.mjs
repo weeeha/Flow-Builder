@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { startSafari } from "./lib/safari.mjs";
 
 const BASE = `http://localhost:${process.env.SD_PORT ?? 4445}`;
 const APP = process.env.APP_URL ?? "http://localhost:3000";
@@ -65,7 +66,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " · " + detail : ""}`);
 };
 
-const { sessionId: sid } = await wd("POST", "/session", { capabilities: { alwaysMatch: { browserName: "Safari" } } });
+const { sessionId: sid, end: endSafari } = await startSafari(wd);
 const S = (p) => `/session/${sid}${p}`;
 const exec = (script, args = []) => wd("POST", S("/execute/sync"), { script, args });
 const stored = () => exec(`return JSON.parse(localStorage.getItem("flow-builder-state")).state`);
@@ -177,7 +178,7 @@ try {
 } catch (err) {
   check("script completed", false, String(err.message ?? err));
 } finally {
-  await wd("DELETE", S("")).catch(() => {});
+  await endSafari();
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
