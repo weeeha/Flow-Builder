@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flow-documents",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "/Users/nickv/ClaudeCode Projects/Flow Builder/.claude/worktrees/flow-documents", "dev", "--port", "3108"],
+      "port": 3108
+    }
+  ]
+}
