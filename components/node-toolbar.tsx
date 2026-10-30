@@ -3,10 +3,12 @@
 import { useReactFlow } from "@xyflow/react";
 import { useRef } from "react";
 import { FileVideo, Play } from "lucide-react";
+import { useBalance } from "@/lib/balance";
 import { readClip } from "@/lib/clip-drop";
 import { useFlowStore } from "@/lib/store";
 import { runAll } from "@/lib/executor";
 import { NODE_VIEWS } from "@/components/nodes/registry";
+import { RunCost } from "@/components/run-cost";
 import { NODE_KINDS, PALETTE_KINDS } from "@/lib/node-kinds";
 import type { NodeKind } from "@/lib/types";
 
@@ -14,6 +16,7 @@ export function NodeToolbar() {
   const addNode = useFlowStore((s) => s.addNode);
   const reactFlow = useReactFlow();
   const clipInput = useRef<HTMLInputElement>(null);
+  const [balance, refreshBalance] = useBalance();
 
   // The non-drag way in: the same pipeline as a drop, landing mid-screen.
   const handleClip = (file: File | undefined) => {
@@ -40,8 +43,12 @@ export function NodeToolbar() {
   };
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-lg">
+    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex flex-col items-center gap-2">
+      {/* On a narrow screen the readout gets its own line, so Run all stays on screen. */}
+      <div className="pointer-events-auto max-w-[calc(100%-2rem)] rounded-xl border border-neutral-200 bg-white px-2 py-1.5 shadow-lg sm:hidden">
+        <RunCost balance={balance} />
+      </div>
+      <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-lg">
         {PALETTE_KINDS.map((kind) => {
           const Icon = NODE_VIEWS[kind].icon;
           return (
@@ -76,8 +83,15 @@ export function NodeToolbar() {
             e.target.value = "";
           }}
         />
+        <div className="hidden items-center sm:flex">
+          <div className="mx-1 h-6 w-px bg-neutral-200" />
+          <RunCost balance={balance} />
+        </div>
         <button
-          onClick={() => runAll()}
+          onClick={async () => {
+            await runAll();
+            await refreshBalance();
+          }}
           className="flex h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-[12px] font-medium text-white hover:bg-neutral-800"
         >
           <Play size={12} />

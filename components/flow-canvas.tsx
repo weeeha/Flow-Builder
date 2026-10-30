@@ -15,6 +15,8 @@ import { useFlowStore } from "@/lib/store";
 import { nodeTypes } from "@/components/nodes/registry";
 import { NodeToolbar } from "@/components/node-toolbar";
 import { Inspector } from "@/components/inspector";
+import { RunLedger } from "@/components/run-ledger";
+import { useLedger } from "@/lib/ledger";
 
 function FlowCanvasInner() {
   const nodes = useFlowStore((s) => s.nodes);
@@ -71,6 +73,7 @@ function FlowCanvasInner() {
       </ReactFlow>
       <NodeToolbar />
       <Header />
+      <RunLedger />
       {dragging && <DropOverlay />}
       <Inspector />
     </div>
@@ -88,11 +91,23 @@ function DropOverlay() {
 }
 
 function Header() {
+  const jobs = useLedger((s) => s.rows.length);
+  const ledgerOpen = useLedger((s) => s.open);
+  const setLedgerOpen = useLedger((s) => s.setOpen);
   return (
     <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-sm">
       <span className="text-[13px] font-semibold">Flows</span>
       <span className="h-4 w-px bg-neutral-200" />
       <span className="text-[13px] text-neutral-600">Untitled flow</span>
+      <span className="h-4 w-px bg-neutral-200" />
+      <button
+        type="button"
+        onClick={() => setLedgerOpen(!ledgerOpen)}
+        aria-expanded={ledgerOpen}
+        className="-my-1 rounded-md px-1.5 py-1 text-[13px] tabular-nums text-neutral-700 hover:bg-neutral-100"
+      >
+        Ledger {jobs > 0 && `(${jobs})`}
+      </button>
     </div>
   );
 }

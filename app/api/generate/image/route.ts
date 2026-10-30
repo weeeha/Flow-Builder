@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   const prompt = [data.prompt, ...inputs.texts].filter(Boolean).join("\n");
   if (!prompt) {
-    return NextResponse.json({ error: "Prompt is empty" }, { status: 400 });
+    return NextResponse.json({ error: "Prompt is empty", stub: false, refused: true }, { status: 400 });
   }
 
   const falKey = process.env.FAL_KEY;
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
     const seed = encodeURIComponent(prompt.slice(0, 60));
     return NextResponse.json({
       url: `https://placehold.co/800x450/e5e7eb/64748b?text=${seed}`,
+      stub: true,
     });
   }
 
@@ -47,10 +48,10 @@ export async function POST(req: Request) {
 
   if (!res.ok) {
     return NextResponse.json(
-      { error: `fal ${res.status}: ${await res.text()}` },
+      { error: `fal ${res.status}: ${await res.text()}`, stub: false },
       { status: 500 }
     );
   }
   const json = (await res.json()) as { images: { url: string }[] };
-  return NextResponse.json({ url: json.images[0]?.url });
+  return NextResponse.json({ url: json.images[0]?.url, stub: false });
 }

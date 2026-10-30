@@ -1,3 +1,4 @@
+import type { RouteReceipt } from "./charge";
 import { rerollGroups, toOutputTexts } from "./cluster";
 import type { DataOf } from "./node-kinds";
 import { effectivePrompt } from "./prompt";
@@ -23,7 +24,37 @@ export type Patch<K extends NodeKind> =
 export type Runner<K extends NodeKind> = (ctx: {
   data: DataOf<K>;
   inputs: NodeInputs;
+  /** Hands the executor what the route said about the job's cost. */
+  report?: (receipt: RouteReceipt) => void;
 }) => Promise<Patch<K>>;
+
+/**
+ * A route that answered with an error status. Keeps the parsed JSON body, so a
+ * failed task's reported cost reaches the ledger along with the message.
+ */
+export class RouteError extends Error {
+  constructor(
+    readonly status: number,
+    readonly text: string,
+    readonly body?: Record<string, unknown>
+  ) {
+    // A JSON error body reads as its message, not as the raw object.
+    super(`${status} ${typeof body?.error === "string" ? body.error : text}`);
+    this.name = "RouteError";
+  }
+}
+
+/** The receipt fields of a route's JSON reply, when it sent any. */
+export function receiptOf(body: unknown): RouteReceipt | undefined {
+  if (!body || typeof body !== "object" || !("stub" in body)) return undefined;
+  const b = body as Partial<RouteReceipt>;
+  return {
+    stub: b.stub === true,
+    ...(b.refused ? { refused: true } : {}),
+    ...(typeof b.cost === "number" ? { cost: b.cost } : {}),
+    ...(b.costMissing ? { costMissing: b.costMissing } : {}),
+  };
+}
 
 async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
   const res = await fetch(endpoint, {
@@ -33,7 +64,13 @@ async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status} ${text}`);
+    let parsed: Record<string, unknown> | undefined;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = undefined;
+    }
+    throw new RouteError(res.status, text, parsed);
   }
   return (await res.json()) as T;
 }
@@ -49,11 +86,14 @@ function urlPatch(url: string) {
  * texts goes out empty, or it would land twice.
  */
 function postRoute<K extends "image" | "video" | "tts">(endpoint: string): Runner<K> {
-  return async ({ data, inputs }) => {
-    const { url } = await postJson<{ url: string }>(endpoint, {
+  return async ({ data, inputs, report }) => {
+    const reply = await postJson<{ url: string } & Partial<RouteReceipt>>(endpoint, {
       data: { ...data, prompt: effectivePrompt(inputs.texts, data.prompt) },
       inputs: { ...inputs, texts: [] },
     });
+    const receipt = receiptOf(reply);
+    if (receipt) report?.(receipt);
+    const { url } = reply;
     // K is still open here, so the compiler cannot see that every one of these
     // kinds takes outputUrl; videoUrl rides BaseNodeData's index signature.
     return urlPatch(url) as unknown as Partial<DataOf<K>>;
@@ -96,8 +136,9 @@ export const RUNNERS = {
 
   // A chip can be pinned while the roll is in flight, and pins win, so the
   // merge runs against the node as it is when the roll lands.
-  cluster: async ({ data, inputs }) => {
+  cluster: async ({ data, inputs, report }) => {
     const roll = await rollCluster(data, inputs);
+    report?.({ stub: roll.stub });
     return (fresh) => ({
       groups: rerollGroups(fresh.groups, roll.groups, fresh.pinned),
       outputTexts: toOutputTexts(fresh.pinned),
