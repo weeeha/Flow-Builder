@@ -45,7 +45,7 @@ export function NodeToolbar() {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex flex-col items-center gap-2">
       {/* On a narrow screen the readout gets its own line, so Run all stays on screen. */}
-      <div className="pointer-events-auto rounded-xl border border-neutral-200 bg-white py-1.5 shadow-lg sm:hidden">
+      <div className="pointer-events-auto max-w-[calc(100%-2rem)] rounded-xl border border-neutral-200 bg-white px-2 py-1.5 shadow-lg sm:hidden">
         <RunCost balance={balance} />
       </div>
       <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-neutral-200 bg-white px-2 py-2 shadow-lg">

@@ -103,3 +103,22 @@ describe("formatting", () => {
     expect(formatDollars(0)).toBe("$0.00");
   });
 });
+
+describe("tries and the read date", () => {
+  it("multiplies the priced nodes by the tries, and leaves the unpriced count alone", () => {
+    spy.mockReturnValue(48);
+    const nodes = [video("a", "runway:gen4.5", 4), video("b", "kling-1.6", 4)];
+    expect(estimateRun(nodes, 3)).toEqual({ credits: 144, unpriced: 1, pending: false });
+  });
+
+  it("calls the table stale only after 30 days", async () => {
+    const { pricesStale } = await import("../pricing");
+    expect(pricesStale(new Date("2026-11-29T00:00:00Z"), "2026-10-30")).toBe(false);
+    expect(pricesStale(new Date("2026-12-01T00:00:00Z"), "2026-10-30")).toBe(true);
+  });
+
+  it("writes the read date the way the toolbar says it", async () => {
+    const { formatReadOn } = await import("../pricing");
+    expect(formatReadOn("2026-10-30")).toBe("30 Oct 2026");
+  });
+});

@@ -12,3 +12,15 @@ export function wantsStub(req: Request): boolean {
   const cookies = req.headers.get("cookie") ?? "";
   return cookies.split(";").some((c) => c.trim() === `${STUB_COOKIE}=1`);
 }
+
+/**
+ * Opt-in: with this cookie set too, a stub video job fails the way a Runway task
+ * does, so the ledger's failed row can be seen with no key and no spend. Off by
+ * default, so the check scripts and reel recordings keep their passing runs.
+ */
+export const STUB_FAIL_COOKIE = "flow-stub-fail";
+
+export function wantsStubFailure(req: Request): boolean {
+  const cookies = req.headers.get("cookie") ?? "";
+  return cookies.split(";").some((c) => c.trim() === `${STUB_FAIL_COOKIE}=1`);
+}

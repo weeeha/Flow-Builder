@@ -120,3 +120,12 @@ describe("RUNNERS", () => {
     });
   });
 });
+
+describe("RouteError", () => {
+  it("reads a JSON error body as its message and keeps the body for the ledger", async () => {
+    urlRoute.mockResolvedValueOnce(Response.json({ error: "Runway task failed: moderation", stub: false, cost: 0 }, { status: 500 }));
+    const err = await RUNNERS.video({ data: { ...initialData("video"), prompt: "x" }, inputs: noInputs() }).catch((e) => e);
+    expect(err.message).toBe("500 Runway task failed: moderation");
+    expect(err.body).toMatchObject({ cost: 0 });
+  });
+});

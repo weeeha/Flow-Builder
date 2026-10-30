@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import RunwayML, { TaskFailedError, TaskTimedOutError } from "@runwayml/sdk";
+import type { RouteReceipt } from "@/lib/charge";
 import { providerOf, runwayModelId } from "@/lib/models";
-import { wantsStub } from "@/lib/stub";
+import { wantsStub, wantsStubFailure } from "@/lib/stub";
 import type { VideoNodeData } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -29,6 +30,9 @@ interface GenerateArgs {
   startImage?: string;
 }
 
+/** Our own check failed before any provider was called. */
+class Refused extends Error {}
+
 export async function POST(req: Request) {
   const { data, inputs } = (await req.json()) as GenerateRequest;
   const args: GenerateArgs = {
@@ -37,17 +41,42 @@ export async function POST(req: Request) {
     duration: data.duration,
     startImage: inputs.images[0],
   };
-  if (wantsStub(req)) return NextResponse.json({ url: STUB_URL });
+  const provider = providerOf(args.model);
+  const key = provider === "runway" ? process.env.RUNWAYML_API_SECRET : process.env.FAL_KEY;
+
+  if (!key || wantsStub(req)) {
+    if (wantsStubFailure(req)) {
+      return NextResponse.json(
+        { error: "Stub failure: the task failed. No provider was called.", stub: true } satisfies Failure,
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ url: STUB_URL, stub: true } satisfies Reply);
+  }
 
   try {
-    const url =
-      providerOf(args.model) === "runway"
-        ? await generateWithRunway(args)
-        : await generateWithFal(args);
-    return NextResponse.json({ url });
+    const reply = provider === "runway" ? await generateWithRunway(args) : await generateWithFal(args);
+    return NextResponse.json(reply);
   } catch (err) {
-    return NextResponse.json({ error: describeError(err) }, { status: 500 });
+    return NextResponse.json({ error: describeError(err), ...receiptFor(err) } satisfies Failure, {
+      status: 500,
+    });
   }
+}
+
+type Reply = { url: string } & RouteReceipt;
+type Failure = { error: string } & RouteReceipt;
+
+/** What a failure says about the money: Runway reports a cost on every finished task. */
+function receiptFor(err: unknown): RouteReceipt {
+  if (err instanceof Refused) return { stub: false, refused: true };
+  if (err instanceof TaskFailedError) {
+    const cost = (err.taskDetails as { cost?: { credits?: number } }).cost?.credits;
+    return typeof cost === "number" ? { stub: false, cost } : { stub: false };
+  }
+  if (err instanceof TaskTimedOutError) return { stub: false, costMissing: "timed-out" };
+  // A Runway create call that errored never made a task; fal reports no cost either way.
+  return { stub: false, costMissing: "rejected" };
 }
 
 async function generateWithFal({
@@ -55,9 +84,8 @@ async function generateWithFal({
   prompt,
   duration,
   startImage,
-}: GenerateArgs): Promise<string> {
-  const falKey = process.env.FAL_KEY;
-  if (!falKey) return STUB_URL;
+}: GenerateArgs): Promise<Reply> {
+  const falKey = process.env.FAL_KEY!;
 
   const endpoint = FAL_MODELS[model] ?? FAL_MODELS["seedance-2.0"]!;
   const res = await fetch(`https://fal.run/${endpoint}`, {
@@ -76,7 +104,7 @@ async function generateWithFal({
 
   const json = (await res.json()) as { video?: { url: string } };
   if (!json.video?.url) throw new Error("fal returned no video url");
-  return json.video.url;
+  return { url: json.video.url, stub: false };
 }
 
 /**
@@ -90,9 +118,7 @@ async function generateWithRunway({
   prompt,
   duration,
   startImage,
-}: GenerateArgs): Promise<string> {
-  if (!process.env.RUNWAYML_API_SECRET) return STUB_URL;
-
+}: GenerateArgs): Promise<Reply> {
   const client = new RunwayML(); // reads RUNWAYML_API_SECRET
   const promptText = prompt.trim().slice(0, 1000);
   const ratio = "1280:720" as const;
@@ -100,7 +126,7 @@ async function generateWithRunway({
 
   const task = (() => {
     if (id === "gen4.5") {
-      if (!promptText) throw new Error("Gen-4.5 needs a text prompt");
+      if (!promptText) throw new Refused("Gen-4.5 needs a text prompt");
       const base = { model: "gen4.5" as const, promptText, duration, ratio };
       return startImage
         ? client.imageToVideo.create({ ...base, promptImage: startImage })
@@ -117,14 +143,16 @@ async function generateWithRunway({
         ? client.imageToVideo.create({ ...base, promptImage: startImage })
         : client.textToVideo.create(base);
     }
-    throw new Error(`Unknown Runway model: ${id}`);
+    throw new Refused(`Unknown Runway model: ${id}`);
   })();
 
   // Stay under the route's 300s cap so a slow task fails cleanly instead of being killed mid-poll.
   const done = await task.waitForTaskOutput({ timeout: 280_000 });
   const url = done.output?.[0];
   if (!url) throw new Error("Runway task succeeded but returned no output");
-  return url;
+  // Typed as required in SDK 4.20.0; read defensively, since a missing cost must read "not stated", never 0.
+  const cost = done.cost?.credits;
+  return typeof cost === "number" ? { url, stub: false, cost } : { url, stub: false };
 }
 
 function describeError(err: unknown): string {

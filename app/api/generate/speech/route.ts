@@ -22,13 +22,14 @@ export async function POST(req: Request) {
   };
   const text = [data.prompt, ...inputs.texts].filter(Boolean).join(" ");
   if (!text) {
-    return NextResponse.json({ error: "Text is empty" }, { status: 400 });
+    return NextResponse.json({ error: "Text is empty", stub: false, refused: true }, { status: 400 });
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey || wantsStub(req)) {
     return NextResponse.json({
       url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+      stub: true,
     });
   }
 
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
 
   if (!res.ok) {
     return NextResponse.json(
-      { error: `elevenlabs ${res.status}: ${await res.text()}` },
+      { error: `elevenlabs ${res.status}: ${await res.text()}`, stub: false },
       { status: 500 }
     );
   }
@@ -64,9 +65,9 @@ export async function POST(req: Request) {
       access: "public",
       contentType: "audio/mpeg",
     });
-    return NextResponse.json({ url: blob.url });
+    return NextResponse.json({ url: blob.url, stub: false });
   }
 
   const dataUrl = `data:audio/mpeg;base64,${buf.toString("base64")}`;
-  return NextResponse.json({ url: dataUrl });
+  return NextResponse.json({ url: dataUrl, stub: false });
 }
