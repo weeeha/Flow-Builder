@@ -1,10 +1,13 @@
 "use client";
 
 import type { FlowEdge, FlowNode, NodeInputs, NodeKind } from "./types";
+import { chargeFor, providerFor, type RouteReceipt } from "./charge";
 import { rerollGroup, toOutputTexts } from "./cluster";
 import { parseHandleId } from "./handles";
+import { useLedger } from "./ledger";
 import type { DataOf } from "./node-kinds";
-import { RUNNERS, rollCluster, type Patch, type Runner } from "./runners";
+import { estimateNode } from "./pricing";
+import { RUNNERS, RouteError, receiptOf, rollCluster, type Patch, type Runner } from "./runners";
 import { useFlowStore } from "./store";
 
 /**
@@ -73,19 +76,57 @@ function applyPatch<K extends NodeKind>(nodeId: string, kind: K, patch: Patch<K>
   updateNodeData(nodeId, typeof patch === "function" ? patch(data) : patch);
 }
 
+let rowCounter = 0;
+
 export async function runSingleNode(nodeId: string) {
   const { nodes, edges, setNodeStatus } = useFlowStore.getState();
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return;
   setNodeStatus(nodeId, "running");
+
+  // Only jobs that reach a provider get a row; a reference or composition
+  // passing its input along has no money in it.
+  const provider = providerFor(node);
+  const rowId = `job-${++rowCounter}`;
+  if (provider) {
+    useLedger.getState().addRow({
+      id: rowId,
+      nodeId,
+      kind: node.type,
+      model: typeof node.data.model === "string" ? node.data.model : undefined,
+      provider,
+      status: "running",
+      estimate: estimateNode(node),
+      charge: { kind: "pending" },
+    });
+  }
+  let receipt: RouteReceipt | undefined;
+
   try {
     // TypeScript cannot correlate node.type with node.data through a record lookup.
     const run = RUNNERS[node.type] as Runner<NodeKind>;
-    const patch = await run({ data: node.data, inputs: gatherInputs(nodeId, nodes, edges) });
+    const patch = await run({
+      data: node.data,
+      inputs: gatherInputs(nodeId, nodes, edges),
+      report: (r) => (receipt = r),
+    });
     applyPatch(nodeId, node.type, patch);
     setNodeStatus(nodeId, "done");
+    if (provider) {
+      useLedger.getState().finishRow(rowId, { status: "done", charge: chargeFor("done", provider, receipt) });
+    }
   } catch (err) {
-    setNodeStatus(nodeId, "error", (err as Error).message);
+    const message = (err as Error).message;
+    setNodeStatus(nodeId, "error", message);
+    if (provider) {
+      // A failed route still sends its receipt, in the error body.
+      const body = err instanceof RouteError ? err.body : undefined;
+      useLedger.getState().finishRow(rowId, {
+        status: "failed",
+        charge: chargeFor("failed", provider, receiptOf(body) ?? receipt),
+        error: typeof body?.error === "string" ? body.error : message,
+      });
+    }
   }
 }
 
@@ -112,6 +153,7 @@ export async function rerollClusterGroup(nodeId: string, groupId: string) {
 }
 
 export async function runAll() {
+  useLedger.getState().startRun();
   const state = useFlowStore.getState();
   const order = topologicalSort(state.nodes, state.edges);
   for (const node of order) {

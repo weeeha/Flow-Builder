@@ -1,10 +1,13 @@
 "use client";
 
 import { Position } from "@xyflow/react";
+import { useMemo } from "react";
 import { Loader2, Play, Trash2, AlertCircle } from "lucide-react";
+import { CostChip } from "@/components/flow/cost-chip";
 import { TypedHandle } from "@/components/handles/typed-handle";
 import { runSingleNode } from "@/lib/executor";
 import { NODE_KINDS, shellPorts } from "@/lib/node-kinds";
+import { estimateNode } from "@/lib/pricing";
 import { useFlowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { NodeKind, NodeStatus } from "@/lib/types";
@@ -37,6 +40,10 @@ export function BaseNode({
   runDisabled = false,
 }: BaseNodeProps) {
   const deleteNode = useFlowStore((s) => s.deleteNode);
+  // Select the node itself (a stable reference until its data changes) and work
+  // the estimate out here, so the selector never returns a fresh object.
+  const node = useFlowStore((s) => s.nodes.find((n) => n.id === id));
+  const estimate = useMemo(() => (node ? estimateNode(node) : null), [node]);
 
   return (
     <div
@@ -75,7 +82,10 @@ export function BaseNode({
       )}
 
       <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-2">
-        <div className="flex items-center gap-2">{footer}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          {footer}
+          {estimate && <CostChip estimate={estimate} />}
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => deleteNode(id)}
