@@ -1,5 +1,13 @@
 # Flow Builder
 
+**Problem.** A media pipeline chains image, video and speech generation, and each output has to reach an input of the matching type.
+
+**Idea.** Put the pipeline on a canvas as nodes with typed handles (text, image, video, audio), allow connections only between handles of the same type, and run any node or the whole graph in topological order.
+
+**Built.** A Next.js 16 app on React Flow and Zustand with image, video, text-to-speech, composition and Concept Cluster nodes, live at https://flow-builder-navy.vercel.app. Without API keys it runs in stub mode with placeholder media. 65 commits on 14 days, Sep 14 to Oct 25, 2026.
+
+**Decision.** React Flow over LiteGraph.js, Rete.js, Drawflow and maxGraph. LiteGraph.js and Rete.js have a less polished UI, Drawflow is too minimal for this feature set, and maxGraph is heavy and aimed at diagram apps.
+
 Node-based visual flow builder for AI media pipelines — built with **Next.js 16**, **React Flow**, and **Zustand**.
 
 ![Flow Builder canvas: an image node wired into a video node, with a text-to-speech node, both feeding a composition node](docs/screenshots/overview.webp)
